@@ -529,20 +529,33 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
         let imageUrl = '';
 
         // Google Driveへアップロード試行
+        console.log('📤 Uploading file. Drive enabled:', !!drive);
         if (drive) {
-            const driveUrl = await uploadToDrive(filePath, req.file.mimetype);
-            if (driveUrl) {
-                imageUrl = driveUrl;
-                // ローカルの一時ファイルは削除
-                fs.unlink(filePath, (err) => {
-                    if (err) console.error('Temp file delete error:', err);
-                });
+            try {
+                const driveUrl = await uploadToDrive(filePath, req.file.mimetype);
+                if (driveUrl) {
+                    imageUrl = driveUrl;
+                    console.log('✅ Used Drive URL:', imageUrl);
+                    // ローカルの一時ファイルは削除
+                    fs.unlink(filePath, (err) => {
+                        if (err) console.error('Temp file delete error:', err);
+                    });
+                } else {
+                    console.log('⚠️ Drive upload returned null');
+                }
+            } catch (driveError) {
+                console.error('❌ Drive upload failed:', driveError.message);
             }
         }
 
-        // Driveが使えない、または失敗した場合はローカルURLを使用
+        // Driveが使えない、または失敗した場合はローカルURLを使用 (動的生成)
         if (!imageUrl) {
-            imageUrl = `${publicBaseUrl}/uploads/${req.file.filename}`;
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.get('host');
+            const dynamicBaseUrl = `${protocol}://${host}`;
+
+            imageUrl = `${dynamicBaseUrl}/uploads/${req.file.filename}`;
+            console.log('⚠️ Fallback to local URL:', imageUrl);
         }
 
         res.json({ success: true, imageUrl: imageUrl });
