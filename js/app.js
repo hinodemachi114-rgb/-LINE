@@ -268,6 +268,8 @@ async function handleCampaignSubmit(e) {
         const imageUrl = document.getElementById('msg-image-url').value || uploadedImageUrl;
         const detailLink = document.getElementById('msg-detail-link').value;
         const applyLink = document.getElementById('msg-apply-link').value;
+        const applyStart = document.getElementById('msg-apply-start')?.value || '';
+        const applyDeadline = document.getElementById('msg-apply-deadline')?.value || '';
 
         // 選択されたタグを取得
         const selectedTags = [];
@@ -288,7 +290,9 @@ async function handleCampaignSubmit(e) {
             description,
             imageUrl,
             detailLink,
-            applyLink
+            applyLink,
+            applyStart,
+            applyDeadline
         });
 
         if (result.success) {

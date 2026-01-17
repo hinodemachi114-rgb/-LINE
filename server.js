@@ -505,7 +505,7 @@ async function getSheetId(sheetName) {
 }
 app.post('/api/send', express.json(), async (req, res) => {
     try {
-        const { target, tags, title, description, imageUrl, detailLink, applyLink } = req.body;
+        const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline } = req.body;
 
         // 対象ユーザー取得
         let targetUsers = await getSheetData('users');
@@ -532,7 +532,7 @@ app.post('/api/send', express.json(), async (req, res) => {
             });
         }
 
-        // 配信履歴保存
+        // 配信履歴保存（申込期間を追加）
         await appendToSheet('campaigns', [
             new Date().toISOString(),
             title,
@@ -542,7 +542,9 @@ app.post('/api/send', express.json(), async (req, res) => {
             description,
             imageUrl || '',
             detailLink || '',
-            applyLink || ''
+            applyLink || '',
+            applyStart || '',
+            applyDeadline || ''
         ]);
 
         res.json({
@@ -718,6 +720,179 @@ async function handleLineEvent(event) {
                     createCategorySelectionMessage()
                 ]
             });
+        }
+        // 研修会一覧コマンド
+        else if (['研修会一覧', 'イベント一覧', '研修', 'イベント'].includes(text)) {
+            try {
+                // キャンペーンデータを取得
+                const campaigns = await getSheetData('campaigns');
+                const today = new Date();
+                today.setHours(0, 0, 0, 0); // 時間をリセットして日付のみ比較
+
+                // フィルタリング: 申込期限内または期限未設定のものを表示
+                // ※ユーザー要望: 「申込期限以降のものは表示しない」 => 期限切れを除外
+                const activeEvents = campaigns.filter(c => {
+                    // 申込リンクがないものは除外（ただのお知らせの可能性）
+                    if (!c.applyLink && !c.detailLink) return false;
+
+                    let isActive = true;
+
+                    // 開始日チェック
+                    if (c.applyStart) {
+                        const startDate = new Date(c.applyStart);
+                        if (today < startDate) isActive = false;
+                    }
+
+                    // 締切日チェック
+                    if (c.applyDeadline) {
+                        const deadlineDate = new Date(c.applyDeadline);
+                        // 締切日の23:59:59まで有効とするため翌日の00:00と比較するか、単純に比較
+                        // ここでは締切当日も含むように修正
+                        deadlineDate.setHours(23, 59, 59, 999);
+                        if (today > deadlineDate) isActive = false;
+                    } else {
+                        // 期限が設定されていない場合でも、申込リンクがあれば表示する？
+                        // 要望は「期限を入れる必要がある」「期限以降は表示しない」
+                        // => 期限がなければ「常時開催」または「期限なし」として表示してよいと判断
+                        // ただし、あまりに古いものを出さないように直近3ヶ月以内などの制限も検討できるが
+                        // 一旦期限未設定は表示とする
+                    }
+
+                    return isActive;
+                });
+
+                // 新しい順または締切が近い順にソート？
+                // ここでは締切が近い順かつ締切があるものを優先、なければ配信日順
+                activeEvents.sort((a, b) => {
+                    if (a.applyDeadline && b.applyDeadline) {
+                        return new Date(a.applyDeadline) - new Date(b.applyDeadline);
+                    }
+                    return new Date(b.sentAt) - new Date(a.sentAt);
+                });
+
+                // 最大10件
+                const displayEvents = activeEvents.slice(0, 10);
+
+                if (displayEvents.length === 0) {
+                    await lineClient.replyMessage({
+                        replyToken: event.replyToken,
+                        messages: [{
+                            type: 'text',
+                            text: '現在受付中の研修会・イベントはありません 🙇‍♂️\n次回のお知らせをお待ちください！'
+                        }]
+                    });
+                } else {
+                    // カルーセルメッセージ作成
+                    const carouselContents = displayEvents.map(event => {
+                        const hasImage = !!event.imageUrl;
+
+                        // 画像URLの相対パス対応（ngrok用）
+                        let displayImageUrl = event.imageUrl;
+                        // Webhookからの返信で相対パスは使えないため、ベースURLが必要
+                        // ただし簡易実装として、絶対パスが入っている前提とする
+                        // ngrokが変わると見えなくなる問題はあるが、現状の仕組み上仕方ない部分はあり
+                        // ※理想は永続的なストレージURL
+
+                        // プレースホルダー画像
+                        if (!displayImageUrl) {
+                            displayImageUrl = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Event';
+                        }
+
+                        return {
+                            type: 'bubble',
+                            size: 'micro',
+                            header: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: '受付中',
+                                        color: '#ffffff',
+                                        align: 'center',
+                                        size: 'xs',
+                                        offsetTop: '3px'
+                                    }
+                                ],
+                                backgroundColor: '#ff334b',
+                                paddingTop: '19px',
+                                paddingAll: '12px',
+                                paddingBottom: '16px'
+                            },
+                            hero: {
+                                type: 'image',
+                                url: displayImageUrl,
+                                size: 'full',
+                                aspectRatio: '20:13',
+                                aspectMode: 'cover'
+                            },
+                            body: {
+                                type: 'box',
+                                layout: 'vertical',
+                                contents: [
+                                    {
+                                        type: 'text',
+                                        text: event.title,
+                                        weight: 'bold',
+                                        size: 'sm',
+                                        wrap: true,
+                                        maxLines: 2
+                                    },
+                                    {
+                                        type: 'text',
+                                        text: event.applyDeadline ? `📅 締切: ${event.applyDeadline}` : '📅 締切: なし',
+                                        size: 'xs',
+                                        color: '#aaaaaa',
+                                        margin: 'sm'
+                                    }
+                                ],
+                                spacing: 'sm',
+                                paddingAll: '13px'
+                            },
+                            footer: {
+                                type: 'box',
+                                layout: 'vertical',
+                                spacing: 'sm',
+                                contents: [
+                                    {
+                                        type: 'button',
+                                        style: 'link',
+                                        height: 'sm',
+                                        action: {
+                                            type: 'uri',
+                                            label: '詳細・申込',
+                                            uri: event.applyLink || event.detailLink || 'https://www.fpa.gr.jp/'
+                                        }
+                                    }
+                                ],
+                                flex: 0
+                            }
+                        };
+                    });
+
+                    await lineClient.replyMessage({
+                        replyToken: event.replyToken,
+                        messages: [{
+                            type: 'flex',
+                            altText: '研修会一覧',
+                            contents: {
+                                type: 'carousel',
+                                contents: carouselContents
+                            }
+                        }]
+                    });
+                }
+
+            } catch (error) {
+                console.error('Event list error:', error);
+                await lineClient.replyMessage({
+                    replyToken: event.replyToken,
+                    messages: [{
+                        type: 'text',
+                        text: '情報の取得中にエラーが発生しました。しばらく経ってから再度お試しください。'
+                    }]
+                });
+            }
         }
     }
 }
@@ -930,7 +1105,9 @@ async function getSheetData(sheetName) {
                 description: row[5] || '',
                 imageUrl: row[6] || '',
                 detailLink: row[7] || '',
-                applyLink: row[8] || ''
+                applyLink: row[8] || '',
+                applyStart: row[9] || '',
+                applyDeadline: row[10] || ''
             }));
         } else if (sheetName === 'admins') {
             return rows.map(row => ({

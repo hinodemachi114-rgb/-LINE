@@ -115,6 +115,24 @@
                             placeholder="https://example.com/apply">
                     </div>
 
+                    <div class="form-group">
+                        <label class="form-label">申込受付期間（任意：研修会一覧に表示する場合は設定してください）</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; color: #666;">開始日</label>
+                                <input type="date" id="msg-apply-start" class="form-input">
+                            </div>
+                            <span style="margin-top: 1.5rem;">〜</span>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; color: #666;">締切日</label>
+                                <input type="date" id="msg-apply-deadline" class="form-input">
+                            </div>
+                        </div>
+                        <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
+                            ※締切日を過ぎると「研修会一覧」に表示されなくなります
+                        </p>
+                    </div>
+
                     <div style="margin-top: 2rem; display: flex; gap: 1rem;">
                         <button type="reset" class="btn" style="background:#ddd;">リセット</button>
                         <button type="submit" class="btn btn-primary" style="flex:1;">
