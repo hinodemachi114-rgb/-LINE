@@ -905,9 +905,53 @@ async function handleLineEvent(event) {
                             displayImageUrl = 'https://placehold.co/600x400/e2e8f0/94a3b8?text=Event';
                         }
 
+                        // ボタンを動的に生成
+                        const footerContents = [];
+
+                        if (event.detailLink) {
+                            footerContents.push({
+                                type: 'button',
+                                style: 'secondary',
+                                height: 'sm',
+                                action: {
+                                    type: 'uri',
+                                    label: '詳細を見る',
+                                    uri: event.detailLink
+                                }
+                            });
+                        }
+
+                        if (event.applyLink) {
+                            footerContents.push({
+                                type: 'button',
+                                style: 'primary',
+                                height: 'sm',
+                                color: '#06C755',
+                                action: {
+                                    type: 'uri',
+                                    label: '申し込む',
+                                    uri: event.applyLink
+                                }
+                            });
+                        }
+
+                        // リンクがどちらもない場合のフォールバック
+                        if (footerContents.length === 0) {
+                            footerContents.push({
+                                type: 'button',
+                                style: 'link',
+                                height: 'sm',
+                                action: {
+                                    type: 'uri',
+                                    label: '公式サイトへ',
+                                    uri: 'https://www.fpa.gr.jp/'
+                                }
+                            });
+                        }
+
                         return {
                             type: 'bubble',
-                            size: 'micro',
+                            size: 'kilo', // サイズを少し大きくして見やすく
                             header: {
                                 type: 'box',
                                 layout: 'vertical',
@@ -943,7 +987,7 @@ async function handleLineEvent(event) {
                                         weight: 'bold',
                                         size: 'sm',
                                         wrap: true,
-                                        maxLines: 2
+                                        maxLines: 3 // タイトルも少し長く表示できるように
                                     },
                                     {
                                         type: 'text',
@@ -960,18 +1004,7 @@ async function handleLineEvent(event) {
                                 type: 'box',
                                 layout: 'vertical',
                                 spacing: 'sm',
-                                contents: [
-                                    {
-                                        type: 'button',
-                                        style: 'link',
-                                        height: 'sm',
-                                        action: {
-                                            type: 'uri',
-                                            label: '詳細・申込',
-                                            uri: event.applyLink || event.detailLink || 'https://www.fpa.gr.jp/'
-                                        }
-                                    }
-                                ],
+                                contents: footerContents,
                                 flex: 0
                             }
                         };
@@ -1133,7 +1166,8 @@ function createRichMessage(title, description, imageUrl, detailLink, applyLink) 
                     size: 'sm',
                     color: '#666666',
                     margin: 'md',
-                    wrap: true
+                    wrap: true,
+                    maxLines: 50
                 }
             ]
         },
