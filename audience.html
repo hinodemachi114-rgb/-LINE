@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>友だち・タグ管理 - 福岡市薬剤師会</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-brands fa-line fa-lg"></i></div>
+            <span>福岡市薬剤師会<br>公式LINE管理</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> ダッシュボード</a>
+            </li>
+            <li class="nav-item"><a href="create-campaign.html" class="nav-link"><i
+                        class="fa-solid fa-pen-to-square"></i> 新規配信作成</a></li>
+            <li class="nav-item"><a href="history.html" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i>
+                    送信履歴</a></li>
+            <li class="nav-item"><a href="audience.html" class="nav-link active"><i class="fa-solid fa-users"></i>
+                    友だち・タグ管理</a></li>
+            <li class="nav-item"><a href="admin-users.html" class="nav-link"><i class="fa-solid fa-user-shield"></i>
+                    管理者設定</a></li>
+            <li class="nav-item" style="margin-top: auto;"><a href="login.html" class="nav-link"><i
+                        class="fa-solid fa-right-from-bracket"></i> ログアウト</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <header class="header">
+            <h1 class="page-title">友だち・タグ管理</h1>
+            <div class="user-profile">
+                <span>管理者: <strong>清水 太一</strong></span>
+                <div class="avatar"><img src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff"
+                        alt="User" style="width:100%;height:100%;"></div>
+            </div>
+        </header>
+
+        <div class="section-card" style="margin-bottom:1rem;">
+            <button class="btn btn-primary btn-sm" onclick="initAudiencePage()">
+                <i class="fa-solid fa-arrows-rotate"></i> 更新
+            </button>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2 class="section-title">カテゴリ別登録人数</h2>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>カテゴリ名</th>
+                            <th>登録人数</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tag-tbody">
+                        <tr>
+                            <td colspan="3" style="text-align:center; color:#999;">読み込み中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section-card">
+                <div class="section-header">
+                    <h2 class="section-title">最新の友だち</h2>
+                </div>
+                <ul class="category-list" id="user-list">
+                    <li class="category-item" style="color:#999;">読み込み中...</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

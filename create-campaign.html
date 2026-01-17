@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新規配信作成 - 福岡市薬剤師会</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-brands fa-line fa-lg"></i></div>
+            <span>福岡市薬剤師会<br>公式LINE管理</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> ダッシュボード</a>
+            </li>
+            <li class="nav-item"><a href="create-campaign.html" class="nav-link active"><i
+                        class="fa-solid fa-pen-to-square"></i> 新規配信作成</a></li>
+            <li class="nav-item"><a href="history.html" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i>
+                    送信履歴</a></li>
+            <li class="nav-item"><a href="audience.html" class="nav-link"><i class="fa-solid fa-users"></i> 友だち・タグ管理</a>
+            </li>
+            <li class="nav-item"><a href="admin-users.html" class="nav-link"><i class="fa-solid fa-user-shield"></i>
+                    管理者設定</a></li>
+            <li class="nav-item" style="margin-top: auto;"><a href="login.html" class="nav-link"><i
+                        class="fa-solid fa-right-from-bracket"></i> ログアウト</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <header class="header">
+            <h1 class="page-title">新規配信作成</h1>
+            <div class="user-profile">
+                <span>管理者: <strong>清水 太一</strong></span>
+                <div class="avatar">
+                    <img src="https://ui-avatars.com/api/?name=Admin+User&background=0D8ABC&color=fff" alt="User"
+                        style="width:100%;height:100%;">
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Left: Editor -->
+            <div class="editor-container"
+                style="background:var(--card-bg); padding:2rem; border-radius:16px; border:1px solid var(--border-color);">
+                <form id="campaign-form">
+
+                    <div class="form-group">
+                        <label class="form-label">配信対象</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="target" value="all" checked> 全員に配信
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="target" value="segment"> タグで指定
+                            </label>
+                        </div>
+
+                        <!-- Tag Cloud (Conditional) -->
+                        <div id="tag-selector" class="tag-cloud">
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">学生会員</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">研修情報のみ</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">研修・イベント情報のみ</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">研修イベント情報及び会からのお知らせすべて</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">メッセージ題名 <span style="color:red;">*</span></label>
+                        <input type="text" id="msg-title" class="form-input" placeholder="例: 9月度研修会のお知らせ" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">詳細本文 <span style="color:red;">*</span></label>
+                        <textarea id="msg-desc" class="form-textarea" placeholder="メッセージの詳細を入力してください..."
+                            required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">画像（任意）</label>
+                        <input type="file" id="msg-image" class="form-input" accept="image/*" style="padding: 10px;">
+                        <input type="hidden" id="msg-image-url">
+                        <div id="upload-status"
+                            style="font-size:0.85rem; margin-top:0.5rem; color:var(--text-secondary);"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">詳細ページリンク URL</label>
+                        <input type="url" id="msg-detail-link" class="form-input"
+                            placeholder="https://example.com/detail">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">申し込みページリンク URL</label>
+                        <input type="url" id="msg-apply-link" class="form-input"
+                            placeholder="https://example.com/apply">
+                    </div>
+
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <button type="reset" class="btn" style="background:#ddd;">リセット</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">
+                            <i class="fa-solid fa-paper-plane"></i> 配信する
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Right: Preview -->
+            <div class="preview-wrapper">
+                <div class="preview-container">
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="phone-header">
+                                福岡市薬剤師会 公式
+                            </div>
+                            <div class="chat-area">
+                                <!-- Rich Message Bubble -->
+                                <div class="chat-bubble">
+                                    <img id="preview-image-display"
+                                        src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Image"
+                                        class="rich-message-image" alt="Preview">
+                                    <div class="rich-message-content">
+                                        <div id="preview-title" class="rich-title">ここに題名が入ります</div>
+                                        <div id="preview-desc" class="rich-desc">
+                                            ここに詳細テキストが表示されます。入力フォームの内容がリアルタイムに反映されます。</div>
+
+                                        <div class="action-buttons">
+                                            <a href="#" class="action-btn btn-detail">詳細を見る ></a>
+                                            <a href="#" class="action-btn btn-apply">申し込む ></a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理者設定 - 福岡市薬剤師会</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-brands fa-line fa-lg"></i></div>
+            <span>福岡市薬剤師会<br>公式LINE管理</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i>
+                    ダッシュボード</a></li>
+            <li class="nav-item"><a href="create-campaign.html" class="nav-link"><i
+                        class="fa-solid fa-pen-to-square"></i> 新規配信作成</a></li>
+            <li class="nav-item"><a href="history.html" class="nav-link"><i class="fa-solid fa-clock-rotate-left"></i>
+                    送信履歴</a></li>
+            <li class="nav-item"><a href="audience.html" class="nav-link"><i class="fa-solid fa-users"></i>
+                    友だち・タグ管理</a></li>
+            <li class="nav-item"><a href="admin-users.html" class="nav-link active"><i
+                        class="fa-solid fa-user-shield"></i> 管理者設定</a></li>
+            <li class="nav-item" style="margin-top: auto;"><a href="#" onclick="logout()" class="nav-link"><i
+                        class="fa-solid fa-right-from-bracket"></i> ログアウト</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <header class="header">
+            <h1 class="page-title">管理者設定</h1>
+            <div class="user-profile">
+                <span>管理者: <strong id="admin-name">読み込み中...</strong></span>
+                <div class="avatar">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="User"
+                        style="width:100%;height:100%;">
+                </div>
+            </div>
+        </header>
+
+        <div class="dashboard-grid" style="grid-template-columns: 1fr;">
+            <!-- 新規管理者追加（スーパー管理者のみ表示） -->
+            <div id="invite-section" class="card" style="display:none;">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="fa-solid fa-user-plus"></i> 新規管理者を招待</h2>
+                </div>
+                <form id="invite-form" style="display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end;">
+                    <div class="form-group" style="flex:1; min-width:200px;">
+                        <label class="form-label">名前</label>
+                        <input type="text" id="new-admin-name" class="form-input" placeholder="管理者の名前" required>
+                    </div>
+                    <div class="form-group" style="flex:1; min-width:250px;">
+                        <label class="form-label">メールアドレス（ID）</label>
+                        <input type="email" id="new-admin-email" class="form-input" placeholder="example@gmail.com"
+                            required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fa-solid fa-paper-plane"></i> 招待を送信
+                    </button>
+                </form>
+                <div id="invite-message" style="margin-top:1rem; display:none; padding:0.75rem; border-radius:8px;">
+                </div>
+            </div>
+
+            <!-- 管理者一覧 -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title"><i class="fa-solid fa-users-gear"></i> 管理者一覧</h2>
+                    <button class="btn btn-secondary" onclick="loadAdmins()"><i class="fa-solid fa-sync"></i>
+                        更新</button>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>名前</th>
+                            <th>メールアドレス（ID）</th>
+                            <th>役割</th>
+                            <th>ステータス</th>
+                            <th>登録日</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admins-tbody">
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding:2rem; color:#999;">読み込み中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSession = null;
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkSession();
+            await loadAdmins();
+
+            document.getElementById('invite-form').addEventListener('submit', handleInvite);
+        });
+
+        // セッション確認
+        async function checkSession() {
+            const sessionId = localStorage.getItem('sessionId');
+            if (!sessionId) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/session?sessionId=${sessionId}`);
+                const session = await response.json();
+
+                if (!session.valid) {
+                    window.location.href = '/login.html';
+                    return;
+                }
+
+                currentSession = session;
+                document.getElementById('admin-name').textContent = session.name;
+
+                // スーパー管理者のみ招待セクション表示
+                if (session.isSuperAdmin) {
+                    document.getElementById('invite-section').style.display = 'block';
+                }
+            } catch (error) {
+                window.location.href = '/login.html';
+            }
+        }
+
+        // 管理者一覧読み込み
+        async function loadAdmins() {
+            try {
+                const response = await fetch('/api/admins');
+                const admins = await response.json();
+
+                const tbody = document.getElementById('admins-tbody');
+
+                if (admins.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:#999;">管理者がいません</td></tr>';
+                    return;
+                }
+
+                const superAdminEmail = 'hinodemachi114@gmail.com';
+
+                tbody.innerHTML = admins.map(admin => {
+                    const statusBadge = admin.status === 'active'
+                        ? '<span class="badge badge-sent">有効</span>'
+                        : '<span class="badge badge-scheduled">招待中</span>';
+                    const roleBadge = admin.email === superAdminEmail
+                        ? '<span style="color:#06C755; font-weight:600;">全体管理者</span>'
+                        : '管理者';
+                    const date = admin.createdAt ? new Date(admin.createdAt).toLocaleDateString('ja-JP') : '-';
+
+                    const deleteBtn = (currentSession?.isSuperAdmin && admin.email !== superAdminEmail)
+                        ? `<button class="btn btn-sm" style="color:#dc2626;" onclick="deleteAdmin('${admin.email}')"><i class="fa-solid fa-trash"></i> 削除</button>`
+                        : '-';
+
+                    return `
+                        <tr>
+                            <td>${admin.name || '-'}</td>
+                            <td>${admin.email}</td>
+                            <td>${roleBadge}</td>
+                            <td>${statusBadge}</td>
+                            <td>${date}</td>
+                            <td>${deleteBtn}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (error) {
+                console.error('Load admins error:', error);
+            }
+        }
+
+        // 招待送信
+        async function handleInvite(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('new-admin-name').value;
+            const email = document.getElementById('new-admin-email').value;
+            const messageEl = document.getElementById('invite-message');
+
+            try {
+                const response = await fetch('/api/admins/invite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        email,
+                        inviterEmail: currentSession.email
+                    })
+                });
+
+                const result = await response.json();
+
+                messageEl.style.display = 'block';
+                if (result.success) {
+                    messageEl.style.background = '#d1fae5';
+                    messageEl.style.color = '#059669';
+                    messageEl.innerHTML = `<i class="fa-solid fa-check"></i> ${result.message}`;
+                    if (result.setupUrl) {
+                        messageEl.innerHTML += `<br><small>設定URL: ${result.setupUrl}</small>`;
+                    }
+                    document.getElementById('invite-form').reset();
+                    await loadAdmins();
+                } else {
+                    messageEl.style.background = '#fee2e2';
+                    messageEl.style.color = '#dc2626';
+                    messageEl.innerHTML = `<i class="fa-solid fa-exclamation-triangle"></i> ${result.error}`;
+                }
+            } catch (error) {
+                messageEl.style.display = 'block';
+                messageEl.style.background = '#fee2e2';
+                messageEl.style.color = '#dc2626';
+                messageEl.textContent = 'エラーが発生しました';
+            }
+        }
+
+        // 管理者削除
+        async function deleteAdmin(email) {
+            if (!confirm(`${email} を削除しますか？`)) return;
+
+            try {
+                const response = await fetch(`/api/admins/${encodeURIComponent(email)}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ inviterEmail: currentSession.email })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('削除しました');
+                    await loadAdmins();
+                } else {
+                    alert(result.error);
+                }
+            } catch (error) {
+                alert('エラーが発生しました');
+            }
+        }
+
+        // ログアウト
+        async function logout() {
+            const sessionId = localStorage.getItem('sessionId');
+            if (sessionId) {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId })
+                });
+            }
+            localStorage.removeItem('sessionId');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+
+</html>

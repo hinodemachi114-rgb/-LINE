@@ -1,0 +1,19 @@
+{
+  "name": "line-admin-app",
+  "version": "1.0.0",
+  "description": "福岡市薬剤師会 公式LINE管理アプリ",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^8.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "googleapis": "^128.0.0",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.12"
+  }
+}

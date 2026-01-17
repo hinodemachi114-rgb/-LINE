@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>送信履歴 - 福岡市薬剤師会</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-icon"><i class="fa-brands fa-line fa-lg"></i></div>
+            <span>福岡市薬剤師会<br>公式LINE管理</span>
+        </div>
+        <ul class="nav-menu">
+            <li class="nav-item"><a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> ダッシュボード</a>
+            </li>
+            <li class="nav-item"><a href="create-campaign.html" class="nav-link"><i
+                        class="fa-solid fa-pen-to-square"></i> 新規配信作成</a></li>
+            <li class="nav-item"><a href="history.html" class="nav-link active"><i
+                        class="fa-solid fa-clock-rotate-left"></i> 送信履歴</a></li>
+            <li class="nav-item"><a href="audience.html" class="nav-link"><i class="fa-solid fa-users"></i> 友だち・タグ管理</a>
+            </li>
+            <li class="nav-item"><a href="admin-users.html" class="nav-link"><i class="fa-solid fa-user-shield"></i>
+                    管理者設定</a></li>
+            <li class="nav-item" style="margin-top: auto;"><a href="#" onclick="logout()" class="nav-link"><i
+                        class="fa-solid fa-right-from-bracket"></i> ログアウト</a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <header class="header">
+            <h1 class="page-title">送信履歴</h1>
+            <div class="user-profile">
+                <span>管理者: <strong id="admin-name">読み込み中...</strong></span>
+                <div class="avatar">
+                    <img src="https://ui-avatars.com/api/?name=Admin&background=0D8ABC&color=fff" alt="User"
+                        style="width:100%;height:100%;">
+                </div>
+            </div>
+        </header>
+
+        <div class="section-card" style="margin-bottom:1rem; display:flex; gap:1rem; align-items:center;">
+            <button class="btn btn-primary btn-sm" id="refresh-btn" onclick="refreshHistory()">
+                <i class="fa-solid fa-arrows-rotate"></i> 更新
+            </button>
+            <span id="refresh-status" style="font-size:0.85rem; color:#666;"></span>
+        </div>
+
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>日時</th>
+                        <th>タイトル</th>
+                        <th>対象</th>
+                        <th>送信数</th>
+                        <th>ステータス</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="history-tbody">
+                    <tr>
+                        <td colspan="6" style="text-align:center; color:#999; padding:2rem;">読み込み中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" class="modal-overlay">
+        <div class="modal" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 class="modal-title">配信内容詳細</h3>
+                <button class="modal-close" id="modal-close">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Dynamic content -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let campaignsData = [];
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // セッション確認
+            const adminName = localStorage.getItem('adminName');
+            if (adminName) {
+                document.getElementById('admin-name').textContent = adminName;
+            }
+
+            await loadHistory();
+            initModal();
+        });
+
+        async function loadHistory() {
+            try {
+                const response = await fetch('/api/campaigns');
+                campaignsData = await response.json();
+
+                const tbody = document.getElementById('history-tbody');
+
+                if (campaignsData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:2rem;">配信履歴がありません</td></tr>';
+                    return;
+                }
+
+                // 新しい順に並べ替え
+                campaignsData.sort((a, b) => new Date(b.sentAt) - new Date(a.sentAt));
+
+                let html = '';
+                campaignsData.forEach((campaign, index) => {
+                    const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
+                    const statusBadge = campaign.status === 'sent'
+                        ? '<span class="badge badge-sent">送信済</span>'
+                        : '<span class="badge badge-scheduled">予約</span>';
+
+                    html += `
+                        <tr>
+                            <td>${date}</td>
+                            <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${campaign.title || '-'}</td>
+                            <td>${campaign.target || '-'}</td>
+                            <td><strong>${campaign.count || 0}名</strong></td>
+                            <td>${statusBadge}</td>
+                            <td><button class="btn btn-sm" style="color:var(--primary-color);" onclick="showDetail(${index})"><i class="fa-solid fa-eye"></i> 詳細</button></td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+            } catch (error) {
+                console.error('Load history error:', error);
+            }
+        }
+
+        function showDetail(index) {
+            const campaign = campaignsData[index];
+            if (!campaign) return;
+
+            const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
+
+            let imageHtml = '';
+            if (campaign.imageUrl) {
+                // ngrokなどの絶対URLを相対パスに変換
+                let displayImageUrl = campaign.imageUrl;
+                if (campaign.imageUrl.includes('/uploads/')) {
+                    // 絶対URLから相対パスを抽出
+                    const uploadsIndex = campaign.imageUrl.indexOf('/uploads/');
+                    displayImageUrl = campaign.imageUrl.substring(uploadsIndex);
+                }
+
+                imageHtml = `
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                            <i class="fa-solid fa-image"></i> 画像
+                        </label>
+                        <img src="${displayImageUrl}" alt="配信画像" style="max-width:100%; border-radius:8px; border:1px solid #ddd;" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <div style="display:none; padding:1rem; background:#f8f9fa; border-radius:8px; color:#666;">
+                            <i class="fa-solid fa-exclamation-triangle"></i> 画像を読み込めませんでした
+                        </div>
+                    </div>
+                `;
+            }
+
+            let linksHtml = '';
+            if (campaign.detailLink || campaign.applyLink) {
+                linksHtml = `
+                    <div style="margin-bottom:1rem;">
+                        <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                            <i class="fa-solid fa-link"></i> リンク
+                        </label>
+                        <div style="background:#f8f9fa; padding:1rem; border-radius:8px;">
+                `;
+                if (campaign.detailLink) {
+                    linksHtml += `<div style="margin-bottom:0.5rem;"><strong>詳細ページ:</strong> <a href="${campaign.detailLink}" target="_blank" style="color:#06C755;">${campaign.detailLink}</a></div>`;
+                }
+                if (campaign.applyLink) {
+                    linksHtml += `<div><strong>申し込み:</strong> <a href="${campaign.applyLink}" target="_blank" style="color:#06C755;">${campaign.applyLink}</a></div>`;
+                }
+                linksHtml += '</div></div>';
+            }
+
+            const modalBody = document.getElementById('modal-body');
+            modalBody.innerHTML = `
+                <div style="background:linear-gradient(135deg, #06C755, #00B140); color:white; padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:0.85rem; opacity:0.9;">配信日時</div>
+                            <div style="font-weight:600;">${date}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:0.85rem; opacity:0.9;">送信数</div>
+                            <div style="font-size:1.5rem; font-weight:700;">${campaign.count || 0}名</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                        <i class="fa-solid fa-heading"></i> タイトル
+                    </label>
+                    <div style="font-size:1.1rem; font-weight:600;">${campaign.title || '-'}</div>
+                </div>
+                
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                        <i class="fa-solid fa-users"></i> 対象
+                    </label>
+                    <span class="badge" style="background:#e0f2fe; color:#0369a1;">${campaign.target || '-'}</span>
+                </div>
+                
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                        <i class="fa-solid fa-align-left"></i> 本文
+                    </label>
+                    <div style="background:#f8f9fa; padding:1rem; border-radius:8px; white-space:pre-wrap;">${campaign.description || '（本文なし）'}</div>
+                </div>
+                
+                ${imageHtml}
+                ${linksHtml}
+            `;
+
+            document.getElementById('detail-modal').classList.add('active');
+        }
+
+        function initModal() {
+            const modal = document.getElementById('detail-modal');
+            const closeBtn = document.getElementById('modal-close');
+
+            closeBtn.addEventListener('click', () => {
+                modal.classList.remove('active');
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        }
+
+        async function refreshHistory() {
+            const btn = document.getElementById('refresh-btn');
+            const status = document.getElementById('refresh-status');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 更新中...';
+            status.textContent = '';
+
+            try {
+                await loadHistory();
+                status.textContent = '✅ 更新完了 (' + new Date().toLocaleTimeString('ja-JP') + ')';
+                status.style.color = '#059669';
+            } catch (error) {
+                status.textContent = '❌ 更新失敗';
+                status.style.color = '#dc2626';
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 更新';
+        }
+
+        function logout() {
+            localStorage.removeItem('sessionId');
+            localStorage.removeItem('adminName');
+            window.location.href = '/login.html';
+        }
+    </script>
+</body>
+
+</html>
