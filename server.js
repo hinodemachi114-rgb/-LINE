@@ -63,13 +63,18 @@ const lineClient = new line.messagingApi.MessagingApiClient({
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN
 });
 
-// Google Sheets設定
+// Google Services設定
 let sheets;
+let drive;
 let auth;
 
-async function initGoogleSheets() {
+async function initGoogleServices() {
     try {
         let authOptions;
+        const scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file'
+        ];
 
         // 環境変数からJSON文字列を読み込む（クラウドデプロイ用）
         if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
@@ -77,7 +82,7 @@ async function initGoogleSheets() {
                 const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_KEY);
                 authOptions = {
                     credentials,
-                    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+                    scopes
                 };
                 console.log('📋 Google認証: 環境変数から読み込み');
             } catch (parseError) {
@@ -96,7 +101,7 @@ async function initGoogleSheets() {
 
             authOptions = {
                 keyFile: keyPath,
-                scopes: ['https://www.googleapis.com/auth/spreadsheets']
+                scopes
             };
             console.log('📋 Google認証: ファイルから読み込み');
         }
@@ -104,7 +109,8 @@ async function initGoogleSheets() {
         auth = new google.auth.GoogleAuth(authOptions);
 
         sheets = google.sheets({ version: 'v4', auth });
-        console.log('✅ Google Sheets API 接続成功');
+        drive = google.drive({ version: 'v3', auth });
+        console.log('✅ Google API (Sheets & Drive) 接続成功');
 
         // 診断：スプレッドシートのシート名を取得
         try {
@@ -506,6 +512,39 @@ async function getSheetId(sheetName) {
     const sheet = response.data.sheets.find(s => s.properties.title === sheetName);
     return sheet ? sheet.properties.sheetId : 0;
 }
+app.post('/api/upload', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'ファイルがアップロードされていません' });
+        }
+
+        const filePath = req.file.path;
+        let imageUrl = '';
+
+        // Google Driveへアップロード試行
+        if (drive) {
+            const driveUrl = await uploadToDrive(filePath, req.file.mimetype);
+            if (driveUrl) {
+                imageUrl = driveUrl;
+                // ローカルの一時ファイルは削除
+                fs.unlink(filePath, (err) => {
+                    if (err) console.error('Temp file delete error:', err);
+                });
+            }
+        }
+
+        // Driveが使えない、または失敗した場合はローカルURLを使用
+        if (!imageUrl) {
+            imageUrl = `${publicBaseUrl}/uploads/${req.file.filename}`;
+        }
+
+        res.json({ success: true, imageUrl: imageUrl });
+    } catch (error) {
+        console.error('Upload error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/send', express.json(), async (req, res) => {
     try {
         const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline } = req.body;
@@ -1148,6 +1187,56 @@ async function appendToSheet(sheetName, values) {
     }
 }
 
+async function uploadToDrive(filePath, mimeType) {
+    if (!drive) {
+        console.warn('Drive not initialized');
+        return null;
+    }
+
+    try {
+        // 1. ファイルアップロード
+        const fileMetadata = {
+            name: path.basename(filePath)
+        };
+        // フォルダID指定があれば追加
+        if (process.env.GOOGLE_DRIVE_FOLDER_ID) {
+            fileMetadata.parents = [process.env.GOOGLE_DRIVE_FOLDER_ID];
+        }
+
+        const media = {
+            mimeType: mimeType,
+            body: fs.createReadStream(filePath)
+        };
+
+        const file = await drive.files.create({
+            resource: fileMetadata,
+            media: media,
+            fields: 'id'
+        });
+
+        const fileId = file.data.id;
+        console.log('✅ Google Drive upload success, ID:', fileId);
+
+        // 2. 公開設定 (誰でも閲覧可能)
+        await drive.permissions.create({
+            fileId: fileId,
+            requestBody: {
+                role: 'reader',
+                type: 'anyone'
+            }
+        });
+
+        // 3. 直リンク生成 (LINEで表示可能にするため)
+        const publicUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+        return publicUrl;
+
+    } catch (error) {
+        console.error('Drive upload error:', error.message);
+        return null;
+    }
+}
+
 async function updateUserCategory(userId, category) {
     if (!sheets) return;
 
@@ -1229,7 +1318,7 @@ app.listen(PORT, async () => {
     console.log(`📱 管理画面: http://localhost:${PORT}/index.html`);
     console.log('');
 
-    await initGoogleSheets();
+    await initGoogleServices();
 
     // ngrok URL自動検出
     const ngrokUrl = await detectNgrokUrl();
