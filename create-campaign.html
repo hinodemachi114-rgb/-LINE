@@ -152,19 +152,33 @@
                                 福岡市薬剤師会 公式
                             </div>
                             <div class="chat-area">
-                                <!-- Rich Message Bubble -->
-                                <div class="chat-bubble">
-                                    <img id="preview-image-display"
-                                        src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Image"
-                                        class="rich-message-image" alt="Preview">
-                                    <div class="rich-message-content">
-                                        <div id="preview-title" class="rich-title">ここに題名が入ります</div>
-                                        <div id="preview-desc" class="rich-desc">
-                                            ここに詳細テキストが表示されます。入力フォームの内容がリアルタイムに反映されます。</div>
-
-                                        <div class="action-buttons">
-                                            <a href="#" class="action-btn btn-detail">詳細を見る ></a>
-                                            <a href="#" class="action-btn btn-apply">申し込む ></a>
+                                <!-- LINE Flex Message Preview -->
+                                <div class="line-message-container">
+                                    <div class="line-bubble">
+                                        <!-- Hero: Image -->
+                                        <div class="line-hero">
+                                            <img id="preview-image-display" src="" style="display:none;" alt="Preview">
+                                            <div id="preview-image-placeholder" class="line-image-placeholder">
+                                                <i class="fa-regular fa-image fa-2x"></i>
+                                                <span>ここに画像が表示されます</span>
+                                            </div>
+                                        </div>
+                                        <!-- Body: Content -->
+                                        <div class="line-body">
+                                            <div id="preview-title" class="line-title">ここに題名が入ります</div>
+                                            <div id="preview-desc" class="line-text">
+                                                ここに詳細テキストが表示されます。入力フォームの内容がリアルタイムに反映されます。</div>
+                                            <div class="line-meta">
+                                                <small id="preview-deadline"
+                                                    style="color:#d5534c; font-weight:bold; display:none;">
+                                                    📅 申込締切: <span id="preview-deadline-date"></span>
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <!-- Footer: Buttons -->
+                                        <div class="line-footer">
+                                            <div class="line-button secondary">詳細を見る</div>
+                                            <div class="line-button primary">申し込む</div>
                                         </div>
                                     </div>
                                 </div>
