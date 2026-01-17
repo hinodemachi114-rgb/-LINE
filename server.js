@@ -519,6 +519,43 @@ async function getSheetId(sheetName) {
     const sheet = response.data.sheets.find(s => s.properties.title === sheetName);
     return sheet ? sheet.properties.sheetId : 0;
 }
+
+// Google Drive画像プロキシ (LINE配信用)
+app.get('/api/proxy-image/:fileId', async (req, res) => {
+    try {
+        const fileId = req.params.fileId;
+        if (!drive) {
+            return res.status(503).send('Drive service unavailable');
+        }
+
+        // ファイルのメタデータを取得（MIMEタイプ確認）
+        const file = await drive.files.get({
+            fileId: fileId,
+            fields: 'mimeType, name'
+        });
+
+        res.setHeader('Content-Type', file.data.mimeType);
+
+        // 画像データをストリームで取得してパイプ
+        const response = await drive.files.get(
+            { fileId: fileId, alt: 'media' },
+            { responseType: 'stream' }
+        );
+
+        response.data
+            .on('end', () => { })
+            .on('error', err => {
+                console.error('Proxy stream error:', err);
+                res.status(500).end();
+            })
+            .pipe(res);
+
+    } catch (error) {
+        console.error('Proxy error:', error.message);
+        res.status(404).send('Image not found');
+    }
+});
+
 app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
@@ -532,10 +569,18 @@ app.post('/api/upload', upload.single('image'), async (req, res) => {
         console.log('📤 Uploading file. Drive enabled:', !!drive);
         if (drive) {
             try {
-                const driveUrl = await uploadToDrive(filePath, req.file.mimetype);
-                if (driveUrl) {
-                    imageUrl = driveUrl;
-                    console.log('✅ Used Drive URL:', imageUrl);
+                // uploadToDriveはfileIdを返すように変更
+                const fileId = await uploadToDrive(filePath, req.file.mimetype);
+
+                if (fileId) {
+                    // プロキシURLを構築
+                    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+                    const host = req.headers['x-forwarded-host'] || req.get('host');
+                    const dynamicBaseUrl = `${protocol}://${host}`;
+
+                    imageUrl = `${dynamicBaseUrl}/api/proxy-image/${fileId}`;
+                    console.log('✅ Generated Proxy URL:', imageUrl);
+
                     // ローカルの一時ファイルは削除
                     fs.unlink(filePath, (err) => {
                         if (err) console.error('Temp file delete error:', err);
@@ -1246,10 +1291,8 @@ async function uploadToDrive(filePath, mimeType) {
             }
         });
 
-        // 3. 直リンク生成 (LINEで表示可能にするため)
-        const publicUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-
-        return publicUrl;
+        // fileIdを返す (プロキシで使用するため)
+        return fileId;
 
     } catch (error) {
         console.error('Drive upload error:', error.message);
