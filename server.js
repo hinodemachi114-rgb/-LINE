@@ -958,7 +958,7 @@ async function handleLineEvent(event) {
                                 contents: [
                                     {
                                         type: 'text',
-                                        text: '受付中',
+                                        text: '受付中✨',
                                         color: '#ffffff',
                                         align: 'center',
                                         size: 'xs',
