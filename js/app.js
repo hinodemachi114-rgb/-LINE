@@ -75,10 +75,10 @@ function updateCategoryChart(categoryStats) {
     if (!chartContainer) return;
 
     const categories = [
-        { key: '1', name: '学生会員', color: '#10B981' },
-        { key: '2', name: '研修情報', color: '#3B82F6' },
-        { key: '3', name: 'イベント', color: '#F59E0B' },
-        { key: '4', name: 'すべて', color: '#EC4899' }
+        { key: '1', name: '学生会員', displayName: '学生', color: '#10B981' },
+        { key: '2', name: '研修情報のみ', displayName: '研修', color: '#3B82F6' },
+        { key: '3', name: '研修・イベント情報のみ', displayName: 'イベント', color: '#F59E0B' },
+        { key: '4', name: '研修イベント情報及び会からのお知らせすべて', displayName: 'すべて', color: '#EC4899' }
     ];
 
     // 最大値を計算
@@ -91,7 +91,7 @@ function updateCategoryChart(categoryStats) {
         chartHTML += `
             <div style="text-align:center; width: 20%;">
                 <div style="height: ${height}px; background: ${cat.color}; border-radius: 8px 8px 0 0; margin: 0 auto; width: 60%; transition: height 0.5s;"></div>
-                <div style="margin-top: 10px; font-size: 12px; font-weight:600;">${cat.name}</div>
+                <div style="margin-top: 10px; font-size: 12px; font-weight:600;">${cat.displayName || cat.name}</div>
                 <div style="font-size: 14px; font-weight:700; color: ${cat.color};">${count}人</div>
             </div>
         `;

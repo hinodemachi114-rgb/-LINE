@@ -150,12 +150,17 @@
 
             let imageHtml = '';
             if (campaign.imageUrl) {
-                // ngrokなどの絶対URLを相対パスに変換
+                // 画像URLを適切に処理
                 let displayImageUrl = campaign.imageUrl;
+
+                // ngrokなどの外部URLから相対パスを抽出
                 if (campaign.imageUrl.includes('/uploads/')) {
-                    // 絶対URLから相対パスを抽出
                     const uploadsIndex = campaign.imageUrl.indexOf('/uploads/');
                     displayImageUrl = campaign.imageUrl.substring(uploadsIndex);
+                } else if (campaign.imageUrl.includes('/api/proxy-image/')) {
+                    // Google Driveプロキシの場合はそのまま使用
+                    const proxyIndex = campaign.imageUrl.indexOf('/api/proxy-image/');
+                    displayImageUrl = campaign.imageUrl.substring(proxyIndex);
                 }
 
                 imageHtml = `
@@ -275,6 +280,7 @@
             window.location.href = '/login.html';
         }
     </script>
+    <script src="js/app.js"></script>
 </body>
 
 </html>
