@@ -10,6 +10,58 @@
         rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        /* Mobile History Improvements - Inline for immediate effect */
+        @media (max-width: 768px) {
+            .data-table {
+                font-size: 0.7rem !important;
+            }
+
+            .data-table th,
+            .data-table td {
+                padding: 0.4rem 0.3rem !important;
+            }
+
+            /* 対象とステータス列を非表示 */
+            .data-table th:nth-child(3),
+            .data-table td:nth-child(3),
+            .data-table th:nth-child(5),
+            .data-table td:nth-child(5) {
+                display: none !important;
+            }
+
+            /* 日時を短縮表示 */
+            .data-table td:first-child {
+                font-size: 0.6rem !important;
+                max-width: 70px;
+                word-break: break-all;
+            }
+
+            /* タイトル列を狭く */
+            .data-table td:nth-child(2) {
+                max-width: 100px !important;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            /* モーダル改善 */
+            .modal {
+                width: 95% !important;
+                max-width: none !important;
+                max-height: 85vh !important;
+                margin: 0.5rem !important;
+            }
+
+            .modal-body {
+                padding: 0.8rem !important;
+                font-size: 0.85rem !important;
+            }
+
+            .modal-body img {
+                max-width: 100% !important;
+            }
+        }
+    </style>
 </head>
 
 <body>
