@@ -618,8 +618,8 @@ app.post('/api/send', express.json(), async (req, res) => {
         let targetUsers = await getSheetData('users');
 
         if (target === 'segment' && tags && tags.length > 0) {
-            // タグでフィルタリング
-            targetUsers = targetUsers.filter(user => tags.includes(user.category));
+            // タグでフィルタリング（選択タグ + 全てのお知らせ希望者）
+            targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
         }
 
         if (targetUsers.length === 0) {

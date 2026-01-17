@@ -36,6 +36,7 @@
 
     <div class="main-content">
         <header class="header">
+            <button id="menu-toggle" class="mobile-menu-btn"><i class="fa-solid fa-bars"></i></button>
             <h1 class="page-title">新規配信作成</h1>
             <div class="user-profile">
                 <span>管理者: <strong>清水 太一</strong></span>
@@ -63,100 +64,108 @@
                         </div>
 
                         <!-- Tag Cloud (Conditional) -->
-                        <label>
-                            <input type="checkbox" class="tag-check">
-                            <span class="tag-chip">学生会員</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="tag-check">
-                            <span class="tag-chip">研修情報のみ</span>
-                        </label>
-                        <label>
-                            <input type="checkbox" class="tag-check">
-                            <span class="tag-chip">研修・イベント情報のみ</span>
-                        </label>
-                        <!-- 要望により削除: 全のお知らせすべて -->
-                    </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">メッセージ題名 <span style="color:red;">*</span></label>
-                <input type="text" id="msg-title" class="form-input" placeholder="例: 9月度研修会のお知らせ" required>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">詳細本文 <span style="color:red;">*</span></label>
-                <textarea id="msg-desc" class="form-textarea" placeholder="メッセージの詳細を入力してください..." required></textarea>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">画像（任意）</label>
-                <input type="file" id="msg-image" class="form-input" accept="image/*" style="padding: 10px;">
-                <input type="hidden" id="msg-image-url">
-                <div id="upload-status" style="font-size:0.85rem; margin-top:0.5rem; color:var(--text-secondary);">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">詳細ページリンク URL</label>
-                <input type="url" id="msg-detail-link" class="form-input" placeholder="https://example.com/detail">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">申し込みページリンク URL</label>
-                <input type="url" id="msg-apply-link" class="form-input" placeholder="https://example.com/apply">
-            </div>
-
-            <div class="form-group">
-                <label class="form-label">申込受付期間（任意：研修会一覧に表示する場合は設定してください）</label>
-                <div style="display: flex; gap: 1rem; align-items: center;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 0.85rem; color: #666;">開始日</label>
-                        <input type="date" id="msg-apply-start" class="form-input">
-                    </div>
-                    <span style="margin-top: 1.5rem;">〜</span>
-                    <div style="flex: 1;">
-                        <label style="font-size: 0.85rem; color: #666;">締切日</label>
-                        <input type="date" id="msg-apply-deadline" class="form-input">
-                    </div>
-                </div>
-                <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
-                    ※締切日を過ぎると「研修会一覧」に表示されなくなります
-                </p>
-            </div>
-
-            <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-                <button type="reset" class="btn" style="background:#ddd;">リセット</button>
-                <button type="submit" class="btn btn-primary" style="flex:1;">
-                    <i class="fa-solid fa-paper-plane"></i> 配信する
-                </button>
-            </div>
-
-            </form>
-        </div>
-
-        <!-- Right: Preview -->
-        <div class="preview-wrapper">
-            <div class="preview-container">
-                <div class="phone-mockup">
-                    <div class="phone-screen">
-                        <div class="phone-header">
-                            福岡市薬剤師会 公式
+                        <div id="tag-selector" class="tag-cloud">
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">学生会員</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">研修情報のみ</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" class="tag-check">
+                                <span class="tag-chip">研修・イベント情報のみ</span>
+                            </label>
+                            <p style="width: 100%; font-size: 0.8rem; color: #666; margin-top: 0.5rem; order: 99;">
+                                ※ 選択したカテゴリに加え、「全てのお知らせ」を希望するユーザーにも配信されます。
+                            </p>
                         </div>
-                        <div class="chat-area">
-                            <!-- Rich Message Bubble -->
-                            <div class="chat-bubble">
-                                <img id="preview-image-display"
-                                    src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Image"
-                                    class="rich-message-image" alt="Preview">
-                                <div class="rich-message-content">
-                                    <div id="preview-title" class="rich-title">ここに題名が入ります</div>
-                                    <div id="preview-desc" class="rich-desc">
-                                        ここに詳細テキストが表示されます。入力フォームの内容がリアルタイムに反映されます。</div>
+                    </div>
 
-                                    <div class="action-buttons">
-                                        <a href="#" class="action-btn btn-detail">詳細を見る ></a>
-                                        <a href="#" class="action-btn btn-apply">申し込む ></a>
+                    <div class="form-group">
+                        <label class="form-label">メッセージ題名 <span style="color:red;">*</span></label>
+                        <input type="text" id="msg-title" class="form-input" placeholder="例: 9月度研修会のお知らせ" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">詳細本文 <span style="color:red;">*</span></label>
+                        <textarea id="msg-desc" class="form-textarea" placeholder="メッセージの詳細を入力してください..."
+                            required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">画像（任意）</label>
+                        <input type="file" id="msg-image" class="form-input" accept="image/*" style="padding: 10px;">
+                        <input type="hidden" id="msg-image-url">
+                        <div id="upload-status"
+                            style="font-size:0.85rem; margin-top:0.5rem; color:var(--text-secondary);">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">詳細ページリンク URL</label>
+                        <input type="url" id="msg-detail-link" class="form-input"
+                            placeholder="https://example.com/detail">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">申し込みページリンク URL</label>
+                        <input type="url" id="msg-apply-link" class="form-input"
+                            placeholder="https://example.com/apply">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">申込受付期間（任意：研修会一覧に表示する場合は設定してください）</label>
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; color: #666;">開始日</label>
+                                <input type="date" id="msg-apply-start" class="form-input">
+                            </div>
+                            <span style="margin-top: 1.5rem;">〜</span>
+                            <div style="flex: 1;">
+                                <label style="font-size: 0.85rem; color: #666;">締切日</label>
+                                <input type="date" id="msg-apply-deadline" class="form-input">
+                            </div>
+                        </div>
+                        <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
+                            ※締切日を過ぎると「研修会一覧」に表示されなくなります
+                        </p>
+                    </div>
+
+                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+                        <button type="reset" class="btn" style="background:#ddd;">リセット</button>
+                        <button type="submit" class="btn btn-primary" style="flex:1;">
+                            <i class="fa-solid fa-paper-plane"></i> 配信する
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- Right: Preview -->
+            <div class="preview-wrapper">
+                <div class="preview-container">
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="phone-header">
+                                福岡市薬剤師会 公式
+                            </div>
+                            <div class="chat-area">
+                                <!-- Rich Message Bubble -->
+                                <div class="chat-bubble">
+                                    <img id="preview-image-display"
+                                        src="https://placehold.co/600x400/e2e8f0/94a3b8?text=Image"
+                                        class="rich-message-image" alt="Preview">
+                                    <div class="rich-message-content">
+                                        <div id="preview-title" class="rich-title">ここに題名が入ります</div>
+                                        <div id="preview-desc" class="rich-desc">
+                                            ここに詳細テキストが表示されます。入力フォームの内容がリアルタイムに反映されます。</div>
+
+                                        <div class="action-buttons">
+                                            <a href="#" class="action-btn btn-detail">詳細を見る ></a>
+                                            <a href="#" class="action-btn btn-apply">申し込む ></a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -165,7 +174,6 @@
                 </div>
             </div>
         </div>
-    </div>
     </div>
 
     <script src="js/app.js"></script>

@@ -453,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 共通初期化
     initModal();
+    initMobileMenu();
 
     // ページ別初期化
     if (path.includes('index.html') || path === '/' || path.endsWith('/')) {
@@ -465,3 +466,40 @@ document.addEventListener('DOMContentLoaded', () => {
         initAudiencePage();
     }
 });
+
+// ==================== Mobile Menu ====================
+function initMobileMenu() {
+    const menuBtn = document.getElementById('menu-toggle');
+    const sidebar = document.querySelector('.sidebar');
+
+    // オーバーレイ生成
+    const overlay = document.createElement('div');
+    overlay.className = 'sidebar-overlay';
+    document.body.appendChild(overlay);
+
+    function toggleMenu() {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
+
+    if (menuBtn) {
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMenu();
+        });
+    }
+
+    // オーバーレイクリックで閉じる
+    overlay.addEventListener('click', toggleMenu);
+
+    // リンククリック時にも閉じる
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        });
+    });
+}
