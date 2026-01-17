@@ -1157,17 +1157,17 @@ function createRichMessage(title, description, imageUrl, detailLink, applyLink) 
                     type: 'text',
                     text: title,
                     weight: 'bold',
-                    size: 'xl',
+                    size: 'md', // xl -> md に縮小
                     wrap: true
                 },
                 {
                     type: 'text',
                     text: description,
-                    size: 'sm',
+                    size: 'xs', // sm -> xs に縮小
                     color: '#666666',
                     margin: 'md',
                     wrap: true,
-                    maxLines: 50
+                    maxLines: 100 // より多く表示できるように増加
                 }
             ]
         },
