@@ -938,3 +938,62 @@ select:focus {
 .line-button.secondary {
     color: #42659a;
 }
+
+/* ================= Mobile History Table Styles ================= */
+@media (max-width: 768px) {
+    /* 履歴テーブル改善 */
+    .data-table {
+        font-size: 0.75rem;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 0.5rem 0.4rem;
+        white-space: nowrap;
+    }
+    
+    .data-table th:nth-child(3),
+    .data-table td:nth-child(3),
+    .data-table th:nth-child(5),
+    .data-table td:nth-child(5) {
+        display: none; /* 対象とステータス列を非表示 */
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* モーダル改善 */
+    .modal {
+        width: 95%;
+        max-width: none;
+        max-height: 90vh;
+        margin: 1rem;
+    }
+    
+    .modal-header {
+        padding: 1rem;
+    }
+    
+    .modal-body {
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .modal-body img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* バッジサイズ調整 */
+    .badge {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.5rem;
+    }
+}

@@ -99,7 +99,7 @@
             }
 
             await loadHistory();
-            initModal();
+            historyInitModal();
         });
 
         async function loadHistory() {
@@ -238,19 +238,23 @@
             document.getElementById('detail-modal').classList.add('active');
         }
 
-        function initModal() {
+        function historyInitModal() {
             const modal = document.getElementById('detail-modal');
             const closeBtn = document.getElementById('modal-close');
 
-            closeBtn.addEventListener('click', () => {
-                modal.classList.remove('active');
-            });
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
                     modal.classList.remove('active');
-                }
-            });
+                });
+            }
+
+            if (modal) {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            }
         }
 
         async function refreshHistory() {
