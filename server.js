@@ -21,6 +21,13 @@ app.use(cors());
 // 静的ファイル配信（UIファイル）
 app.use(express.static(__dirname));
 
+// アップロードディレクトリの確認と作成
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+    console.log('📁 Creating uploads directory...');
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
 // アップロードファイル配信
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
