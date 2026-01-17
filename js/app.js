@@ -468,7 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (path.includes('create-campaign.html')) {
         initCampaignPage();
     } else if (path.includes('history.html')) {
-        initHistoryPage();
+        // history.htmlは独自実装があるためスキップ
+        // initHistoryPage(); 
     } else if (path.includes('audience.html')) {
         initAudiencePage();
     }
