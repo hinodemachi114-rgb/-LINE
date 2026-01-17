@@ -47,7 +47,10 @@ const upload = multer({
 });
 
 // ngrok URL（画像配信用）
-let publicBaseUrl = '';
+// 画像配信用ベースURL
+// RENDER_EXTERNAL_URL: Renderで自動設定される環境変数
+let publicBaseUrl = process.env.RENDER_EXTERNAL_URL || process.env.PUBLIC_BASE_URL || 'http://localhost:3000';
+console.log('🌐 Base URL set to:', publicBaseUrl);
 
 // LINE SDK設定
 const lineConfig = {
