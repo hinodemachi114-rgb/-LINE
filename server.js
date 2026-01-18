@@ -1646,3 +1646,29 @@ app.listen(PORT, async () => {
     console.log('');
 });
 
+// ==================== Render スリープ防止 ====================
+// 無料プランは15分でスリープするため、14分ごとに自己pingを実行
+const KEEP_ALIVE_INTERVAL = 14 * 60 * 1000; // 14分
+
+function keepAlive() {
+    const url = process.env.RENDER_EXTERNAL_URL;
+    if (url) {
+        const https = require('https');
+        https.get(`${url}/api/health`, (res) => {
+            console.log(`🏃 Keep-alive ping: ${res.statusCode}`);
+        }).on('error', (err) => {
+            console.log('Keep-alive ping failed:', err.message);
+        });
+    }
+}
+
+// ヘルスチェックエンドポイント
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// 起動後にkeep-aliveを開始
+if (process.env.RENDER_EXTERNAL_URL) {
+    setInterval(keepAlive, KEEP_ALIVE_INTERVAL);
+    console.log('🔄 Keep-alive enabled (14-minute interval)');
+}
