@@ -210,7 +210,7 @@
             const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
 
             let imageHtml = '';
-            if (campaign.imageUrl) {
+            if (campaign.imageUrl && campaign.imageUrl.trim() !== '') {
                 // 画像URLを適切に処理
                 let displayImageUrl = campaign.imageUrl;
                 let isOldFormat = false;
@@ -256,6 +256,18 @@
                         </div>
                     `;
                 }
+            } else {
+                // 画像がない場合
+                imageHtml = `
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                            <i class="fa-solid fa-image"></i> 画像
+                        </label>
+                        <div style="padding:1rem; background:#f0f0f0; border-radius:8px; color:#666;">
+                            <i class="fa-solid fa-image"></i> 画像なし
+                        </div>
+                    </div>
+                `;
             }
 
             let linksHtml = '';
