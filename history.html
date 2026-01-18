@@ -172,9 +172,13 @@
                 let html = '';
                 campaignsData.forEach((campaign, index) => {
                     const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
-                    const statusBadge = campaign.status === 'sent'
-                        ? '<span class="badge badge-sent">送信済</span>'
-                        : '<span class="badge badge-scheduled">予約</span>';
+                    let statusBadge;
+                    if (campaign.status === 'sent') {
+                        statusBadge = '<span class="badge badge-sent">送信済</span>';
+                    } else {
+                        const scheduledTime = new Date(campaign.sentAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                        statusBadge = `<span class="badge badge-scheduled">予約<br><small>${scheduledTime}</small></span>`;
+                    }
 
                     html += `
                         <tr>
@@ -247,16 +251,28 @@
                 linksHtml += '</div></div>';
             }
 
+            // 予約キャンセルボタン（予約中のみ表示）
+            let cancelHtml = '';
+            if (campaign.status === 'scheduled') {
+                cancelHtml = `
+                    <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px dashed #ddd;">
+                        <button onclick="cancelSchedule(${index})" class="btn" style="width:100%; background:#ef4444; color:white;">
+                            <i class="fa-solid fa-ban"></i> 予約をキャンセル
+                        </button>
+                    </div>
+                `;
+            }
+
             const modalBody = document.getElementById('modal-body');
             modalBody.innerHTML = `
-                <div style="background:linear-gradient(135deg, #06C755, #00B140); color:white; padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
+                <div style="background:linear-gradient(135deg, ${campaign.status === 'scheduled' ? '#f59e0b, #d97706' : '#06C755, #00B140'}); color:white; padding:1rem; border-radius:8px; margin-bottom:1.5rem;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <div>
-                            <div style="font-size:0.85rem; opacity:0.9;">配信日時</div>
+                            <div style="font-size:0.85rem; opacity:0.9;">${campaign.status === 'scheduled' ? '配信予定日時' : '配信日時'}</div>
                             <div style="font-weight:600;">${date}</div>
                         </div>
                         <div style="text-align:right;">
-                            <div style="font-size:0.85rem; opacity:0.9;">送信数</div>
+                            <div style="font-size:0.85rem; opacity:0.9;">${campaign.status === 'scheduled' ? '予定送信数' : '送信数'}</div>
                             <div style="font-size:1.5rem; font-weight:700;">${campaign.count || 0}名</div>
                         </div>
                     </div>
@@ -285,9 +301,35 @@
                 
                 ${imageHtml}
                 ${linksHtml}
+                ${cancelHtml}
             `;
 
             document.getElementById('detail-modal').classList.add('active');
+        }
+
+        // 予約キャンセル
+        async function cancelSchedule(index) {
+            const campaign = campaignsData[index];
+            if (!campaign || !confirm('この予約配信をキャンセルしてもよろしいですか？')) return;
+
+            try {
+                const response = await fetch(`/api/campaigns/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sentAt: campaign.sentAt })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('✅ 予約をキャンセルしました');
+                    document.getElementById('detail-modal').classList.remove('active');
+                    await loadHistory();
+                } else {
+                    alert('❌ ' + (data.error || 'キャンセルに失敗しました'));
+                }
+            } catch (error) {
+                alert('❌ エラー: ' + error.message);
+            }
         }
 
         function historyInitModal() {

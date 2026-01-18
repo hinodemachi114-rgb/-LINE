@@ -743,6 +743,37 @@ app.post('/api/schedule', express.json(), async (req, res) => {
     }
 });
 
+// 予約キャンセル
+app.post('/api/campaigns/cancel', express.json(), async (req, res) => {
+    try {
+        const { sentAt } = req.body;
+
+        if (!sentAt) {
+            return res.status(400).json({ error: 'キャンセル対象が指定されていません' });
+        }
+
+        const campaigns = await getSheetData('campaigns');
+        const rowIndex = campaigns.findIndex(c => c.sentAt === sentAt && c.status === 'scheduled');
+
+        if (rowIndex >= 0) {
+            // ステータスを'cancelled'に更新
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                range: `campaigns!E${rowIndex + 2}`,
+                valueInputOption: 'RAW',
+                resource: { values: [['cancelled']] }
+            });
+
+            res.json({ success: true, message: '予約をキャンセルしました' });
+        } else {
+            res.status(404).json({ error: '予約が見つかりません' });
+        }
+    } catch (error) {
+        console.error('Cancel error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // 予約配信スケジューラー（1分ごとにチェック）
 setInterval(async () => {
     try {
