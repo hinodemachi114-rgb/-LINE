@@ -665,6 +665,221 @@ app.post('/api/send', express.json(), async (req, res) => {
     }
 });
 
+// ==================== 予約配信機能 ====================
+
+// 予約配信保存
+app.post('/api/schedule', express.json(), async (req, res) => {
+    try {
+        const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, scheduledAt } = req.body;
+
+        if (!scheduledAt) {
+            return res.status(400).json({ error: '予約日時を指定してください' });
+        }
+
+        const scheduledDate = new Date(scheduledAt);
+        if (scheduledDate <= new Date()) {
+            return res.status(400).json({ error: '予約日時は現在時刻より後に設定してください' });
+        }
+
+        // 対象ユーザー数を事前計算
+        let targetUsers = await getSheetData('users');
+        if (target === 'segment' && tags && tags.length > 0) {
+            targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
+        }
+
+        // 予約保存
+        const scheduleId = `SCH-${Date.now()}`;
+        await appendToSheet('campaigns', [
+            scheduledDate.toISOString(),  // sentAt (予約時刻)
+            title,
+            target === 'segment' ? tags.join(',') : '全員',
+            targetUsers.length,
+            'scheduled',  // status
+            description,
+            imageUrl || '',
+            detailLink || '',
+            applyLink || '',
+            applyStart || '',
+            applyDeadline || '',
+            scheduleId  // scheduleId
+        ]);
+
+        res.json({
+            success: true,
+            scheduleId,
+            targetCount: targetUsers.length,
+            scheduledAt: scheduledDate.toISOString(),
+            message: `${targetUsers.length}人への配信を ${scheduledDate.toLocaleString('ja-JP')} に予約しました`
+        });
+    } catch (error) {
+        console.error('Schedule error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 予約配信スケジューラー（1分ごとにチェック）
+setInterval(async () => {
+    try {
+        const campaigns = await getSheetData('campaigns');
+        const now = new Date();
+
+        for (const campaign of campaigns) {
+            if (campaign.status === 'scheduled') {
+                const scheduledTime = new Date(campaign.sentAt);
+                if (scheduledTime <= now) {
+                    console.log(`⏰ 予約配信実行: ${campaign.title}`);
+
+                    // 対象ユーザー取得
+                    let targetUsers = await getSheetData('users');
+                    const tags = campaign.target ? campaign.target.split(',') : [];
+
+                    if (campaign.target !== '全員' && tags.length > 0) {
+                        targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
+                    }
+
+                    const userIds = targetUsers.map(u => u.userId).filter(id => id);
+
+                    if (userIds.length > 0) {
+                        const flexMessage = createRichMessage(
+                            campaign.title,
+                            campaign.description,
+                            campaign.imageUrl,
+                            campaign.detailLink,
+                            campaign.applyLink
+                        );
+
+                        await lineClient.multicast({
+                            to: userIds,
+                            messages: [flexMessage]
+                        });
+
+                        console.log(`✅ 予約配信完了: ${userIds.length}人に送信`);
+                    }
+
+                    // ステータス更新
+                    await updateCampaignStatus(campaign.sentAt, 'sent');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Scheduler error:', error);
+    }
+}, 60000); // 1分ごと
+
+// キャンペーンステータス更新
+async function updateCampaignStatus(sentAt, newStatus) {
+    try {
+        const campaigns = await getSheetData('campaigns');
+        const rowIndex = campaigns.findIndex(c => c.sentAt === sentAt);
+        if (rowIndex >= 0) {
+            const sheetId = await getSheetIdByName('campaigns');
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                range: `campaigns!E${rowIndex + 2}`,
+                valueInputOption: 'RAW',
+                resource: { values: [[newStatus]] }
+            });
+        }
+    } catch (error) {
+        console.error('Status update error:', error);
+    }
+}
+
+// ==================== 下書き機能 ====================
+
+// 下書き保存
+app.post('/api/drafts', express.json(), async (req, res) => {
+    try {
+        const { title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, tags } = req.body;
+
+        const draftId = `DRF-${Date.now()}`;
+        const now = new Date().toISOString();
+
+        await appendToSheet('drafts', [
+            draftId,
+            title || '',
+            description || '',
+            imageUrl || '',
+            detailLink || '',
+            applyLink || '',
+            applyStart || '',
+            applyDeadline || '',
+            tags ? tags.join(',') : '',
+            now,  // createdAt
+            now   // updatedAt
+        ]);
+
+        res.json({
+            success: true,
+            draftId,
+            message: '下書きを保存しました'
+        });
+    } catch (error) {
+        console.error('Draft save error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 下書き一覧取得
+app.get('/api/drafts', async (req, res) => {
+    try {
+        const drafts = await getSheetData('drafts');
+        // 新しい順にソート
+        drafts.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+        res.json(drafts);
+    } catch (error) {
+        console.error('Draft list error:', error);
+        res.json([]);
+    }
+});
+
+// 下書き取得
+app.get('/api/drafts/:id', async (req, res) => {
+    try {
+        const drafts = await getSheetData('drafts');
+        const draft = drafts.find(d => d.draftId === req.params.id);
+        if (draft) {
+            res.json(draft);
+        } else {
+            res.status(404).json({ error: '下書きが見つかりません' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 下書き削除
+app.delete('/api/drafts/:id', async (req, res) => {
+    try {
+        const drafts = await getSheetData('drafts');
+        const rowIndex = drafts.findIndex(d => d.draftId === req.params.id);
+
+        if (rowIndex >= 0) {
+            const sheetId = await getSheetIdByName('drafts');
+            await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                resource: {
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'ROWS',
+                                startIndex: rowIndex + 1,
+                                endIndex: rowIndex + 2
+                            }
+                        }
+                    }]
+                }
+            });
+            res.json({ success: true, message: '下書きを削除しました' });
+        } else {
+            res.status(404).json({ error: '下書きが見つかりません' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==================== LINE Webhook ====================
 
 app.post('/webhook', line.middleware(lineConfig), async (req, res) => {

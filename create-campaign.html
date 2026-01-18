@@ -126,10 +126,36 @@
                         </p>
                     </div>
 
-                    <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-                        <button type="reset" class="btn" style="background:#ddd;">リセット</button>
-                        <button type="submit" class="btn btn-primary" style="flex:1;">
-                            <i class="fa-solid fa-paper-plane"></i> 配信する
+                    <!-- 下書き読み込み -->
+                    <div class="form-group"
+                        style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed #ddd;">
+                        <label class="form-label"><i class="fa-regular fa-folder-open"></i> 下書きから読み込み</label>
+                        <select id="draft-selector" class="form-input" style="background: #f8f9fa;">
+                            <option value="">-- 下書きを選択 --</option>
+                        </select>
+                    </div>
+
+                    <!-- 予約配信設定 -->
+                    <div class="form-group" style="margin-top: 1rem;">
+                        <label class="form-label"><i class="fa-regular fa-clock"></i> 予約配信（オプション）</label>
+                        <input type="datetime-local" id="schedule-datetime" class="form-input"
+                            style="background: #f8f9fa;">
+                        <p style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
+                            ※空欄の場合は即時配信されます
+                        </p>
+                    </div>
+
+                    <!-- アクションボタン群 -->
+                    <div style="margin-top: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button type="button" id="btn-save-draft" class="btn"
+                                style="flex: 1; background: #94a3b8; color: white;">
+                                <i class="fa-regular fa-floppy-disk"></i> 下書き保存
+                            </button>
+                            <button type="reset" class="btn" style="background:#ddd;">リセット</button>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <i class="fa-solid fa-paper-plane"></i> <span id="submit-btn-text">配信する</span>
                         </button>
                     </div>
 

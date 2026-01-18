@@ -233,6 +233,153 @@ async function initCampaignPage() {
     if (form) {
         form.addEventListener('submit', handleCampaignSubmit);
     }
+
+    // 下書き保存ボタン
+    const saveDraftBtn = document.getElementById('btn-save-draft');
+    if (saveDraftBtn) {
+        saveDraftBtn.addEventListener('click', handleSaveDraft);
+    }
+
+    // 下書き選択
+    const draftSelector = document.getElementById('draft-selector');
+    if (draftSelector) {
+        loadDraftList();
+        draftSelector.addEventListener('change', handleLoadDraft);
+    }
+
+    // 予約日時変更時のボタンテキスト更新
+    const scheduleInput = document.getElementById('schedule-datetime');
+    if (scheduleInput) {
+        scheduleInput.addEventListener('change', (e) => {
+            const btnText = document.getElementById('submit-btn-text');
+            if (e.target.value) {
+                btnText.textContent = '予約配信';
+            } else {
+                btnText.textContent = '配信する';
+            }
+        });
+    }
+}
+
+// 下書き一覧読み込み
+async function loadDraftList() {
+    try {
+        const response = await fetch('/api/drafts');
+        const drafts = await response.json();
+        const selector = document.getElementById('draft-selector');
+        if (!selector) return;
+
+        selector.innerHTML = '<option value="">-- 下書きを選択 --</option>';
+        drafts.forEach(draft => {
+            const option = document.createElement('option');
+            option.value = draft.draftId;
+            const date = new Date(draft.createdAt).toLocaleDateString('ja-JP');
+            option.textContent = `${draft.title || '(無題)'} - ${date}`;
+            selector.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Draft list load error:', error);
+    }
+}
+
+// 下書き保存
+async function handleSaveDraft() {
+    const btn = document.getElementById('btn-save-draft');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 保存中...';
+    btn.disabled = true;
+
+    try {
+        const selectedTags = [];
+        document.querySelectorAll('.tag-check:checked').forEach(cb => {
+            if (cb.value) selectedTags.push(cb.value);
+        });
+
+        const result = await fetch('/api/drafts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: document.getElementById('msg-title').value,
+                description: document.getElementById('msg-desc').value,
+                imageUrl: document.getElementById('msg-image-url').value || uploadedImageUrl,
+                detailLink: document.getElementById('msg-detail-link').value,
+                applyLink: document.getElementById('msg-apply-link').value,
+                applyStart: document.getElementById('msg-apply-start')?.value || '',
+                applyDeadline: document.getElementById('msg-apply-deadline')?.value || '',
+                tags: selectedTags
+            })
+        });
+
+        const data = await result.json();
+        if (data.success) {
+            alert('✅ ' + data.message);
+            loadDraftList();
+        } else {
+            alert('❌ ' + (data.error || '保存に失敗しました'));
+        }
+    } catch (error) {
+        alert('❌ エラー: ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// 下書き読み込み
+async function handleLoadDraft(e) {
+    const draftId = e.target.value;
+    if (!draftId) return;
+
+    try {
+        const response = await fetch(`/api/drafts/${draftId}`);
+        const draft = await response.json();
+
+        if (draft.draftId) {
+            document.getElementById('msg-title').value = draft.title || '';
+            document.getElementById('msg-desc').value = draft.description || '';
+            document.getElementById('msg-image-url').value = draft.imageUrl || '';
+            document.getElementById('msg-detail-link').value = draft.detailLink || '';
+            document.getElementById('msg-apply-link').value = draft.applyLink || '';
+            if (document.getElementById('msg-apply-start')) {
+                document.getElementById('msg-apply-start').value = draft.applyStart || '';
+            }
+            if (document.getElementById('msg-apply-deadline')) {
+                document.getElementById('msg-apply-deadline').value = draft.applyDeadline || '';
+            }
+
+            // タグチェックボックス復元
+            document.querySelectorAll('.tag-check').forEach(cb => cb.checked = false);
+            if (draft.tags) {
+                const savedTags = draft.tags.split(',');
+                savedTags.forEach(tag => {
+                    const checkbox = document.querySelector(`.tag-check[value="${tag}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            }
+
+            // プレビュー更新
+            const previewTitle = document.getElementById('preview-title');
+            const previewDesc = document.getElementById('preview-desc');
+            if (previewTitle) previewTitle.textContent = draft.title || 'ここに題名が入ります';
+            if (previewDesc) previewDesc.textContent = draft.description || 'ここに詳細テキストが表示されます。';
+
+            // 画像プレビュー
+            if (draft.imageUrl) {
+                const previewImg = document.getElementById('preview-image-display');
+                const placeholder = document.getElementById('preview-image-placeholder');
+                if (previewImg && placeholder) {
+                    previewImg.src = draft.imageUrl;
+                    previewImg.style.display = 'block';
+                    placeholder.style.display = 'none';
+                }
+                uploadedImageUrl = draft.imageUrl;
+            }
+
+            alert('✅ 下書きを読み込みました');
+        }
+    } catch (error) {
+        alert('❌ 読み込みエラー: ' + error.message);
+    }
 }
 
 // ngrok URLを自動検出してサーバーに設定
@@ -287,17 +434,42 @@ async function handleCampaignSubmit(e) {
             }
         });
 
-        const result = await sendCampaign({
-            target,
-            tags: selectedTags,
-            title,
-            description,
-            imageUrl,
-            detailLink,
-            applyLink,
-            applyStart,
-            applyDeadline
-        });
+        // 予約配信チェック
+        const scheduledAt = document.getElementById('schedule-datetime')?.value || '';
+
+        let result;
+        if (scheduledAt) {
+            // 予約配信
+            result = await fetch('/api/schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    target,
+                    tags: selectedTags,
+                    title,
+                    description,
+                    imageUrl,
+                    detailLink,
+                    applyLink,
+                    applyStart,
+                    applyDeadline,
+                    scheduledAt
+                })
+            }).then(r => r.json());
+        } else {
+            // 即時配信
+            result = await sendCampaign({
+                target,
+                tags: selectedTags,
+                title,
+                description,
+                imageUrl,
+                detailLink,
+                applyLink,
+                applyStart,
+                applyDeadline
+            });
+        }
 
         if (result.success) {
             alert(`✅ ${result.message}`);
