@@ -175,7 +175,9 @@
                     let statusBadge;
                     if (campaign.status === 'sent') {
                         statusBadge = '<span class="badge badge-sent">送信済</span>';
-                    } else {
+                    } else if (campaign.status === 'cancelled') {
+                        statusBadge = '<span class="badge" style="background:#9ca3af; color:white;">キャンセル</span>';
+                    } else if (campaign.status === 'scheduled') {
                         const scheduledTime = new Date(campaign.sentAt).toLocaleString('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
                         statusBadge = `<span class="badge badge-scheduled">予約<br><small>${scheduledTime}</small></span>`;
                     }
@@ -214,9 +216,15 @@
                     const uploadsIndex = campaign.imageUrl.indexOf('/uploads/');
                     displayImageUrl = campaign.imageUrl.substring(uploadsIndex);
                 } else if (campaign.imageUrl.includes('/api/proxy-image/')) {
-                    // Google Driveプロキシの場合はそのまま使用
+                    // Google Driveプロキシの場合
                     const proxyIndex = campaign.imageUrl.indexOf('/api/proxy-image/');
                     displayImageUrl = campaign.imageUrl.substring(proxyIndex);
+                } else if (campaign.imageUrl.match(/^[a-zA-Z0-9_-]{20,}$/)) {
+                    // Google Drive fileId のみの場合（長い英数字文字列）
+                    displayImageUrl = `/api/proxy-image/${campaign.imageUrl}`;
+                } else if (campaign.imageUrl.startsWith('http')) {
+                    // 外部URLの場合はそのまま使用
+                    displayImageUrl = campaign.imageUrl;
                 }
 
                 imageHtml = `
@@ -227,7 +235,8 @@
                         <img src="${displayImageUrl}" alt="配信画像" style="max-width:100%; border-radius:8px; border:1px solid #ddd;" 
                              onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <div style="display:none; padding:1rem; background:#f8f9fa; border-radius:8px; color:#666;">
-                            <i class="fa-solid fa-exclamation-triangle"></i> 画像を読み込めませんでした
+                            <i class="fa-solid fa-exclamation-triangle"></i> 画像を読み込めませんでした<br>
+                            <small style="word-break:break-all;">URL: ${campaign.imageUrl}</small>
                         </div>
                     </div>
                 `;
