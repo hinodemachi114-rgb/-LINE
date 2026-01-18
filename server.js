@@ -881,7 +881,7 @@ app.delete('/api/drafts/:id', async (req, res) => {
         const rowIndex = drafts.findIndex(d => d.draftId === req.params.id);
 
         if (rowIndex >= 0) {
-            const sheetId = await getSheetIdByName('drafts');
+            const sheetId = await getSheetId('drafts');
             await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
                 resource: {
