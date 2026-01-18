@@ -787,7 +787,7 @@ async function handleLineEvent(event) {
                                         },
                                         {
                                             type: 'text',
-                                            text: '変更したい場合は「変更」と送信してください',
+                                            text: '変更したい場合は、下のメニューから「登録情報変更」ボタンを押してください',
                                             size: 'xs',
                                             color: '#999999',
                                             margin: 'lg',

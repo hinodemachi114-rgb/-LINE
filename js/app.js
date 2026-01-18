@@ -269,7 +269,8 @@ async function handleCampaignSubmit(e) {
     submitBtn.disabled = true;
 
     try {
-        const target = document.querySelector('input[name="target"]:checked').value;
+        // ラジオボタン廃止のため常にsegment
+        const target = 'segment';
         const title = document.getElementById('msg-title').value;
         const description = document.getElementById('msg-desc').value;
         const imageUrl = document.getElementById('msg-image-url').value || uploadedImageUrl;
@@ -278,17 +279,13 @@ async function handleCampaignSubmit(e) {
         const applyStart = document.getElementById('msg-apply-start')?.value || '';
         const applyDeadline = document.getElementById('msg-apply-deadline')?.value || '';
 
-        // 選択されたタグを取得
+        // 選択されたタグを取得（value属性から直接取得）
         const selectedTags = [];
-        if (target === 'segment') {
-            document.querySelectorAll('.tag-check:checked').forEach(checkbox => {
-                const tagName = checkbox.nextElementSibling.textContent.trim();
-                if (tagName.includes('学生')) selectedTags.push('1');
-                if (tagName.includes('研修情報のみ')) selectedTags.push('2');
-                if (tagName.includes('研修・イベント')) selectedTags.push('3');
-                if (tagName.includes('すべて')) selectedTags.push('4');
-            });
-        }
+        document.querySelectorAll('.tag-check:checked').forEach(checkbox => {
+            if (checkbox.value) {
+                selectedTags.push(checkbox.value);
+            }
+        });
 
         const result = await sendCampaign({
             target,

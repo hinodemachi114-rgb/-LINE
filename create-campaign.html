@@ -53,32 +53,25 @@
                 <form id="campaign-form">
 
                     <div class="form-group">
-                        <label class="form-label">配信対象</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="target" value="all" checked> 全員に配信
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="target" value="segment"> タグで指定
-                            </label>
-                        </div>
+                        <label class="form-label">配信対象カテゴリ</label>
 
-                        <!-- Tag Cloud (Conditional) -->
-                        <div id="tag-selector" class="tag-cloud">
+                        <!-- Tag Cloud (常時表示) -->
+                        <div id="tag-selector" class="tag-cloud" style="display: flex;">
                             <label>
-                                <input type="checkbox" class="tag-check">
+                                <input type="checkbox" class="tag-check" value="1">
                                 <span class="tag-chip">学生会員</span>
                             </label>
                             <label>
-                                <input type="checkbox" class="tag-check">
+                                <input type="checkbox" class="tag-check" value="2">
                                 <span class="tag-chip">研修情報のみ</span>
                             </label>
                             <label>
-                                <input type="checkbox" class="tag-check">
+                                <input type="checkbox" class="tag-check" value="3">
                                 <span class="tag-chip">研修・イベント情報のみ</span>
                             </label>
                             <p style="width: 100%; font-size: 0.8rem; color: #666; margin-top: 0.5rem; order: 99;">
-                                ※ 選択したカテゴリに加え、「全てのお知らせ」を希望するユーザーにも配信されます。
+                                ※ 選択したカテゴリに加え、「全てのお知らせ」を希望するユーザーにも配信されます。<br>
+                                ※ <strong>全員に配信したい場合は、すべてのカテゴリにチェックを入れてください。</strong>
                             </p>
                         </div>
                     </div>
