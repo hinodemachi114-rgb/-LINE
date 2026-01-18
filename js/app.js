@@ -65,20 +65,29 @@ async function sendCampaign(data) {
 // ==================== Dashboard Page ====================
 
 async function initDashboard() {
-    const stats = await fetchStats();
+    console.log('📊 Dashboard loading...');
 
-    // 統計カードを更新
-    const totalFriendsEl = document.getElementById('stat-total-friends');
-    const registeredUsersEl = document.getElementById('stat-registered-users');
-    const monthlyDeliveriesEl = document.getElementById('stat-monthly-deliveries');
+    try {
+        const stats = await fetchStats();
+        console.log('📊 Stats received:', stats);
 
-    if (totalFriendsEl) totalFriendsEl.textContent = stats.totalFriends.toLocaleString();
-    if (registeredUsersEl) registeredUsersEl.textContent = stats.registeredUsers.toLocaleString();
-    if (monthlyDeliveriesEl) monthlyDeliveriesEl.textContent = stats.monthlyDeliveries;
+        // 統計カードを更新
+        const totalFriendsEl = document.getElementById('stat-total-friends');
+        const registeredUsersEl = document.getElementById('stat-registered-users');
+        const monthlyDeliveriesEl = document.getElementById('stat-monthly-deliveries');
 
-    // カテゴリ別統計を更新
-    updateCategoryChart(stats.categoryStats);
-    updateCategoryList(stats.categoryStats);
+        if (totalFriendsEl) totalFriendsEl.textContent = stats.totalFriends.toLocaleString();
+        if (registeredUsersEl) registeredUsersEl.textContent = stats.registeredUsers.toLocaleString();
+        if (monthlyDeliveriesEl) monthlyDeliveriesEl.textContent = stats.monthlyDeliveries;
+
+        // カテゴリ別統計を更新
+        updateCategoryChart(stats.categoryStats);
+        updateCategoryList(stats.categoryStats);
+
+        console.log('✅ Dashboard updated');
+    } catch (error) {
+        console.error('❌ Dashboard error:', error);
+    }
 }
 
 function updateCategoryChart(categoryStats) {

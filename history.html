@@ -213,11 +213,11 @@
             if (campaign.imageUrl) {
                 // 画像URLを適切に処理
                 let displayImageUrl = campaign.imageUrl;
+                let isOldFormat = false;
 
-                // ngrokなどの外部URLから相対パスを抽出
+                // /uploads/ パスは古い形式（Renderでは表示不可）
                 if (campaign.imageUrl.includes('/uploads/')) {
-                    const uploadsIndex = campaign.imageUrl.indexOf('/uploads/');
-                    displayImageUrl = campaign.imageUrl.substring(uploadsIndex);
+                    isOldFormat = true;
                 } else if (campaign.imageUrl.includes('/api/proxy-image/')) {
                     // Google Driveプロキシの場合
                     const proxyIndex = campaign.imageUrl.indexOf('/api/proxy-image/');
@@ -230,19 +230,32 @@
                     displayImageUrl = campaign.imageUrl;
                 }
 
-                imageHtml = `
-                    <div style="margin-bottom:1.5rem;">
-                        <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
-                            <i class="fa-solid fa-image"></i> 画像
-                        </label>
-                        <img src="${displayImageUrl}" alt="配信画像" style="max-width:100%; border-radius:8px; border:1px solid #ddd;" 
-                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <div style="display:none; padding:1rem; background:#f8f9fa; border-radius:8px; color:#666;">
-                            <i class="fa-solid fa-exclamation-triangle"></i> 画像を読み込めませんでした<br>
-                            <small style="word-break:break-all;">URL: ${campaign.imageUrl}</small>
+                if (isOldFormat) {
+                    imageHtml = `
+                        <div style="margin-bottom:1.5rem;">
+                            <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                                <i class="fa-solid fa-image"></i> 画像
+                            </label>
+                            <div style="padding:1rem; background:#fff3cd; border-radius:8px; color:#856404;">
+                                <i class="fa-solid fa-info-circle"></i> この画像は旧システムで保存されたため表示できません<br>
+                                <small>今後アップロードする画像は正常に表示されます</small>
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                } else {
+                    imageHtml = `
+                        <div style="margin-bottom:1.5rem;">
+                            <label style="font-weight:600; color:#333; display:block; margin-bottom:0.5rem;">
+                                <i class="fa-solid fa-image"></i> 画像
+                            </label>
+                            <img src="${displayImageUrl}" alt="配信画像" style="max-width:100%; border-radius:8px; border:1px solid #ddd;" 
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div style="display:none; padding:1rem; background:#f8f9fa; border-radius:8px; color:#666;">
+                                <i class="fa-solid fa-exclamation-triangle"></i> 画像を読み込めませんでした
+                            </div>
+                        </div>
+                    `;
+                }
             }
 
             let linksHtml = '';
