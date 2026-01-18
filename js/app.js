@@ -36,6 +36,17 @@ async function fetchCampaigns() {
     }
 }
 
+// ユーザー情報を取得
+async function fetchUsers() {
+    try {
+        const response = await fetch(`${API_BASE}/api/users`);
+        return await response.json();
+    } catch (error) {
+        console.error('Users fetch error:', error);
+        return [];
+    }
+}
+
 // メッセージを配信
 async function sendCampaign(data) {
     try {
@@ -126,6 +137,92 @@ function updateCategoryList(categoryStats) {
     });
 
     listContainer.innerHTML = listHTML;
+}
+
+// ==================== Audience Page ====================
+
+async function initAudiencePage() {
+    console.log('📊 Loading audience page...');
+
+    try {
+        // APIからユーザーデータを取得
+        const response = await fetch('/api/users');
+        const users = await response.json();
+
+        // カテゴリ別の統計を計算
+        const categories = [
+            { key: '1', name: '学生会員', color: '#10B981' },
+            { key: '2', name: '研修情報のみ', color: '#3B82F6' },
+            { key: '3', name: '研修・イベント情報のみ', color: '#F59E0B' },
+            { key: '4', name: '全てのお知らせ', color: '#EC4899' }
+        ];
+
+        const categoryStats = {};
+        categories.forEach(cat => {
+            categoryStats[cat.key] = users.filter(u => u.category === cat.key).length;
+        });
+
+        // タグテーブルを更新
+        const tagTbody = document.getElementById('tag-tbody');
+        if (tagTbody) {
+            let htmlRows = '';
+            categories.forEach(cat => {
+                const count = categoryStats[cat.key] || 0;
+                htmlRows += `
+                    <tr>
+                        <td>
+                            <span class="category-dot" style="background:${cat.color}; display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:8px;"></span>
+                            ${cat.name}
+                        </td>
+                        <td><strong>${count}人</strong></td>
+                        <td>
+                            <button class="btn btn-sm" style="color:var(--primary-color);" onclick="viewCategoryUsers('${cat.key}', '${cat.name}')">
+                                <i class="fa-solid fa-eye"></i> 詳細
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tagTbody.innerHTML = htmlRows;
+        }
+
+        // ユーザーリストを更新（最新10件）
+        const userList = document.getElementById('user-list');
+        if (userList) {
+            // 登録日の新しい順にソート
+            const sortedUsers = users
+                .filter(u => u.registeredAt)
+                .sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt))
+                .slice(0, 10);
+
+            if (sortedUsers.length === 0) {
+                userList.innerHTML = '<li class="category-item" style="color:#999;">登録ユーザーがいません</li>';
+            } else {
+                let listHtml = '';
+                sortedUsers.forEach(user => {
+                    const catName = categories.find(c => c.key === user.category)?.name || '未設定';
+                    const date = user.registeredAt ? new Date(user.registeredAt).toLocaleDateString('ja-JP') : '-';
+                    listHtml += `
+                        <li class="category-item">
+                            <span class="category-name">${user.displayName || 'ユーザー'}</span>
+                            <span class="category-count" style="font-size:0.85rem; color:#666;">${catName} (${date})</span>
+                        </li>
+                    `;
+                });
+                userList.innerHTML = listHtml;
+            }
+        }
+
+        console.log('✅ Audience page loaded');
+    } catch (error) {
+        console.error('Audience page error:', error);
+        alert('データの読み込みに失敗しました');
+    }
+}
+
+// カテゴリ別ユーザー詳細表示（将来の拡張用）
+function viewCategoryUsers(categoryKey, categoryName) {
+    alert(`「${categoryName}」のユーザー一覧機能は今後追加予定です`);
 }
 
 // ==================== Campaign Creation Page ====================
@@ -586,73 +683,6 @@ function showCampaignDetail(title) {
     const modalTitle = document.getElementById('modal-msg-title');
     if (modalTitle) modalTitle.textContent = title;
     if (modal) modal.classList.add('active');
-}
-
-// ==================== Audience Page ====================
-
-async function initAudiencePage() {
-    const users = await fetchUsers();
-
-    // タグ別集計
-    const tagCounts = { '1': 0, '2': 0, '3': 0, '4': 0 };
-    users.forEach(user => {
-        if (user.category && tagCounts[user.category] !== undefined) {
-            tagCounts[user.category]++;
-        }
-    });
-
-    // タグテーブル更新
-    const tagTbody = document.getElementById('tag-tbody');
-    if (tagTbody) {
-        const tags = [
-            { key: '1', name: '学生会員' },
-            { key: '2', name: '研修情報のみ' },
-            { key: '3', name: '研修・イベント情報のみ' },
-            { key: '4', name: '研修イベント情報及び会からのお知らせすべて' }
-        ];
-
-        let html = '';
-        tags.forEach(tag => {
-            html += `
-                <tr>
-                    <td>${tag.name}</td>
-                    <td>${tagCounts[tag.key]}名</td>
-                    <td>-</td>
-                </tr>
-            `;
-        });
-        tagTbody.innerHTML = html;
-    }
-
-    // ユーザーリスト更新
-    const userList = document.getElementById('user-list');
-    if (userList) {
-        const recentUsers = users.slice(-5).reverse(); // 最新5件
-        let html = '';
-        recentUsers.forEach(user => {
-            const categoryName = getCategoryName(user.category);
-            html += `
-                <li class="category-item">
-                    <span class="category-name">
-                        <div class="avatar" style="width:30px;height:30px;margin-right:10px;background:#ddd;"></div>
-                        ${user.displayName || 'Unknown'}
-                    </span>
-                    <span class="category-count">${categoryName}</span>
-                </li>
-            `;
-        });
-        userList.innerHTML = html || '<li class="category-item">ユーザーがいません</li>';
-    }
-}
-
-function getCategoryName(categoryId) {
-    const names = {
-        '1': '学生会員',
-        '2': '研修情報のみ',
-        '3': '研修・イベント',
-        '4': 'すべて'
-    };
-    return names[categoryId] || '未選択';
 }
 
 // ==================== Modal Controls ====================

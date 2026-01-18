@@ -157,7 +157,10 @@
         async function loadHistory() {
             try {
                 const response = await fetch('/api/campaigns');
-                campaignsData = await response.json();
+                let allCampaigns = await response.json();
+
+                // キャンセル済みを除外
+                campaignsData = allCampaigns.filter(c => c.status !== 'cancelled');
 
                 const tbody = document.getElementById('history-tbody');
 
