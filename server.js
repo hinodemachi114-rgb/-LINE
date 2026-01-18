@@ -1474,6 +1474,20 @@ async function getSheetData(sheetName) {
                 status: row[4],
                 createdAt: row[5]
             }));
+        } else if (sheetName === 'drafts') {
+            return rows.map(row => ({
+                draftId: row[0],
+                title: row[1],
+                description: row[2],
+                imageUrl: row[3],
+                detailLink: row[4],
+                applyLink: row[5],
+                applyStart: row[6],
+                applyDeadline: row[7],
+                tags: row[8],
+                createdAt: row[9],
+                updatedAt: row[10]
+            }));
         }
 
         return rows;
