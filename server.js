@@ -126,6 +126,32 @@ async function initGoogleServices() {
             });
             const sheetNames = spreadsheet.data.sheets.map(s => s.properties.title);
             console.log('📋 利用可能なシート名:', sheetNames);
+
+            // draftsシートが存在しない場合は自動作成
+            if (!sheetNames.includes('drafts')) {
+                console.log('📝 draftsシートを自動作成中...');
+                await sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                    resource: {
+                        requests: [{
+                            addSheet: {
+                                properties: { title: 'drafts' }
+                            }
+                        }]
+                    }
+                });
+
+                // ヘッダー行を追加
+                await sheets.spreadsheets.values.update({
+                    spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                    range: 'drafts!A1:K1',
+                    valueInputOption: 'RAW',
+                    resource: {
+                        values: [['draftId', 'title', 'description', 'imageUrl', 'detailLink', 'applyLink', 'applyStart', 'applyDeadline', 'tags', 'createdAt', 'updatedAt']]
+                    }
+                });
+                console.log('✅ draftsシート作成完了');
+            }
         } catch (diagError) {
             console.error('⚠️  シート名取得エラー:', diagError.message);
         }
