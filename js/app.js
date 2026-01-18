@@ -90,6 +90,29 @@ async function initDashboard() {
     }
 }
 
+// ダッシュボード更新（ボタン用、視覚的フィードバック付き）
+async function refreshDashboard() {
+    const btn = document.getElementById('btn-refresh-dashboard');
+    const timeDisplay = document.getElementById('dashboard-update-time');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 更新中...';
+    }
+
+    await initDashboard();
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 更新';
+    }
+
+    if (timeDisplay) {
+        const now = new Date();
+        timeDisplay.textContent = `更新完了 ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+}
+
 function updateCategoryChart(categoryStats) {
     const chartContainer = document.getElementById('category-chart');
     if (!chartContainer) return;
@@ -232,6 +255,29 @@ async function initAudiencePage() {
 // カテゴリ別ユーザー詳細表示（将来の拡張用）
 function viewCategoryUsers(categoryKey, categoryName) {
     alert(`「${categoryName}」のユーザー一覧機能は今後追加予定です`);
+}
+
+// 友達タグ管理更新（ボタン用、視覚的フィードバック付き）
+async function refreshAudience() {
+    const btn = document.getElementById('btn-refresh-audience');
+    const timeDisplay = document.getElementById('audience-update-time');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> 更新中...';
+    }
+
+    await initAudiencePage();
+
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> 更新';
+    }
+
+    if (timeDisplay) {
+        const now = new Date();
+        timeDisplay.textContent = `更新完了 ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
 }
 
 // ==================== Campaign Creation Page ====================

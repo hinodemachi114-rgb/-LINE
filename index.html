@@ -106,9 +106,13 @@
             <div class="section-card">
                 <div class="section-header">
                     <h2 class="section-title">配信希望カテゴリ分布</h2>
-                    <button class="btn btn-sm" style="color:var(--primary-color);" onclick="initDashboard()">
-                        <i class="fa-solid fa-arrows-rotate"></i> 更新
-                    </button>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <span id="dashboard-update-time" style="font-size:0.75rem; color:#666;"></span>
+                        <button id="btn-refresh-dashboard" class="btn btn-sm" style="color:var(--primary-color);"
+                            onclick="refreshDashboard()">
+                            <i class="fa-solid fa-arrows-rotate"></i> 更新
+                        </button>
+                    </div>
                 </div>
                 <!-- Dynamic Chart Area -->
                 <div id="category-chart"

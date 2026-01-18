@@ -45,10 +45,11 @@
             </div>
         </header>
 
-        <div class="section-card" style="margin-bottom:1rem;">
-            <button class="btn btn-primary btn-sm" onclick="initAudiencePage()">
+        <div class="section-card" style="margin-bottom:1rem; display:flex; align-items:center; gap:1rem;">
+            <button id="btn-refresh-audience" class="btn btn-primary btn-sm" onclick="refreshAudience()">
                 <i class="fa-solid fa-arrows-rotate"></i> 更新
             </button>
+            <span id="audience-update-time" style="font-size:0.85rem; color:#666;"></span>
         </div>
 
         <div class="dashboard-grid">

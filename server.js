@@ -733,10 +733,11 @@ app.post('/api/schedule', express.json(), async (req, res) => {
             targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
         }
 
-        // 予約保存
+        // 日本時間で保存（フロントエンドで入力された日時をそのまま保存）
+        // scheduledAtはフロントエンドで入力された日時文字列（例：2026-01-18T20:00）
         const scheduleId = `SCH-${Date.now()}`;
         await appendToSheet('campaigns', [
-            scheduledDate.toISOString(),  // sentAt (予約時刻)
+            scheduledAt,  // sentAt (入力された予約時刻をそのまま保存)
             title,
             target === 'segment' ? tags.join(',') : '全員',
             targetUsers.length,
