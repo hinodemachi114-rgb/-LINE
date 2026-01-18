@@ -219,23 +219,43 @@ app.get('/api/campaigns', async (req, res) => {
     }
 });
 
-// 画像アップロード
-app.post('/api/upload', upload.single('image'), (req, res) => {
+// 画像アップロード (Google Drive優先)
+app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '画像ファイルが必要です' });
         }
 
-        // ngrok URLが設定されていれば使用、なければローカルURL
-        const baseUrl = publicBaseUrl || `http://localhost:${process.env.PORT || 3000}`;
-        const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+        const filePath = req.file.path;
+        const mimeType = req.file.mimetype;
 
-        res.json({
-            success: true,
-            filename: req.file.filename,
-            imageUrl: imageUrl
-        });
+        // Google Driveにアップロードを試行
+        const fileId = await uploadToDrive(filePath, mimeType);
+
+        if (fileId) {
+            // Google Driveへのアップロード成功 → プロキシURLを返す
+            const imageUrl = `/api/proxy-image/${fileId}`;
+            console.log('✅ Image uploaded to Drive, proxy URL:', imageUrl);
+
+            res.json({
+                success: true,
+                filename: req.file.filename,
+                imageUrl: imageUrl
+            });
+        } else {
+            // Google Driveが使えない場合はローカルURLを返す（開発環境向け）
+            const baseUrl = publicBaseUrl || `http://localhost:${process.env.PORT || 3000}`;
+            const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+            console.log('⚠️ Drive unavailable, using local URL:', imageUrl);
+
+            res.json({
+                success: true,
+                filename: req.file.filename,
+                imageUrl: imageUrl
+            });
+        }
     } catch (error) {
+        console.error('Upload error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -743,7 +763,7 @@ app.post('/api/schedule', express.json(), async (req, res) => {
     }
 });
 
-// 予約キャンセル
+// 予約キャンセル（履歴から完全削除）
 app.post('/api/campaigns/cancel', express.json(), async (req, res) => {
     try {
         const { sentAt } = req.body;
@@ -756,15 +776,25 @@ app.post('/api/campaigns/cancel', express.json(), async (req, res) => {
         const rowIndex = campaigns.findIndex(c => c.sentAt === sentAt && c.status === 'scheduled');
 
         if (rowIndex >= 0) {
-            // ステータスを'cancelled'に更新
-            await sheets.spreadsheets.values.update({
+            // 行を完全に削除
+            const sheetId = await getSheetId('campaigns');
+            await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
-                range: `campaigns!E${rowIndex + 2}`,
-                valueInputOption: 'RAW',
-                resource: { values: [['cancelled']] }
+                resource: {
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'ROWS',
+                                startIndex: rowIndex + 1,  // +1 for header row
+                                endIndex: rowIndex + 2
+                            }
+                        }
+                    }]
+                }
             });
 
-            res.json({ success: true, message: '予約をキャンセルしました' });
+            res.json({ success: true, message: '予約を削除しました' });
         } else {
             res.status(404).json({ error: '予約が見つかりません' });
         }
