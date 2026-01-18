@@ -810,43 +810,52 @@ setInterval(async () => {
     try {
         const campaigns = await getSheetData('campaigns');
         const now = new Date();
+        const scheduledCampaigns = campaigns.filter(c => c.status === 'scheduled');
 
-        for (const campaign of campaigns) {
-            if (campaign.status === 'scheduled') {
-                const scheduledTime = new Date(campaign.sentAt);
-                if (scheduledTime <= now) {
-                    console.log(`⏰ 予約配信実行: ${campaign.title}`);
+        if (scheduledCampaigns.length > 0) {
+            console.log(`⏰ スケジューラー確認: ${scheduledCampaigns.length}件の予約あり、現在時刻: ${now.toLocaleString('ja-JP')}`);
+        }
 
-                    // 対象ユーザー取得
-                    let targetUsers = await getSheetData('users');
-                    const tags = campaign.target ? campaign.target.split(',') : [];
+        for (const campaign of scheduledCampaigns) {
+            // sentAtを日本時間として解析（例: "2026-01-18T20:00"）
+            const scheduledTime = new Date(campaign.sentAt);
+            console.log(`📅 比較: ${campaign.title}, 予約=${campaign.sentAt} (parsed=${scheduledTime.toLocaleString('ja-JP')}), 現在=${now.toLocaleString('ja-JP')}`);
 
-                    if (campaign.target !== '全員' && tags.length > 0) {
-                        targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
-                    }
+            if (scheduledTime <= now) {
+                console.log(`⏰ 予約配信実行開始: ${campaign.title}`);
 
-                    const userIds = targetUsers.map(u => u.userId).filter(id => id);
+                // 対象ユーザー取得
+                let targetUsers = await getSheetData('users');
+                const tags = campaign.target ? campaign.target.split(',') : [];
 
-                    if (userIds.length > 0) {
-                        const flexMessage = createRichMessage(
-                            campaign.title,
-                            campaign.description,
-                            campaign.imageUrl,
-                            campaign.detailLink,
-                            campaign.applyLink
-                        );
-
-                        await lineClient.multicast({
-                            to: userIds,
-                            messages: [flexMessage]
-                        });
-
-                        console.log(`✅ 予約配信完了: ${userIds.length}人に送信`);
-                    }
-
-                    // ステータス更新
-                    await updateCampaignStatus(campaign.sentAt, 'sent');
+                if (campaign.target !== '全員' && tags.length > 0) {
+                    targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
                 }
+
+                const userIds = targetUsers.map(u => u.userId).filter(id => id);
+                console.log(`👥 対象ユーザー: ${userIds.length}人`);
+
+                if (userIds.length > 0) {
+                    const flexMessage = createRichMessage(
+                        campaign.title,
+                        campaign.description,
+                        campaign.imageUrl,
+                        campaign.detailLink,
+                        campaign.applyLink
+                    );
+
+                    await lineClient.multicast({
+                        to: userIds,
+                        messages: [flexMessage]
+                    });
+
+                    console.log(`✅ 予約配信完了: ${userIds.length}人に送信`);
+                } else {
+                    console.log(`⚠️ 対象ユーザーがいません`);
+                }
+
+                // ステータス更新
+                await updateCampaignStatus(campaign.sentAt, 'sent');
             }
         }
     } catch (error) {
@@ -860,13 +869,15 @@ async function updateCampaignStatus(sentAt, newStatus) {
         const campaigns = await getSheetData('campaigns');
         const rowIndex = campaigns.findIndex(c => c.sentAt === sentAt);
         if (rowIndex >= 0) {
-            const sheetId = await getSheetIdByName('campaigns');
             await sheets.spreadsheets.values.update({
                 spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
                 range: `campaigns!E${rowIndex + 2}`,
                 valueInputOption: 'RAW',
                 resource: { values: [[newStatus]] }
             });
+            console.log(`✅ ステータス更新: ${sentAt} -> ${newStatus}`);
+        } else {
+            console.log(`⚠️ キャンペーンが見つかりません: ${sentAt}`);
         }
     } catch (error) {
         console.error('Status update error:', error);
