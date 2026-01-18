@@ -130,9 +130,16 @@
                     <div class="form-group"
                         style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px dashed #ddd;">
                         <label class="form-label"><i class="fa-regular fa-folder-open"></i> 下書きから読み込み</label>
-                        <select id="draft-selector" class="form-input" style="background: #f8f9fa;">
-                            <option value="">-- 下書きを選択 --</option>
-                        </select>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <select id="draft-selector" class="form-input" style="background: #f8f9fa; flex: 1;">
+                                <option value="">-- 下書きを選択 --</option>
+                            </select>
+                            <button type="button" id="btn-delete-draft" class="btn"
+                                style="background: #ef4444; color: white; padding: 0.5rem 0.75rem; display: none;"
+                                title="選択中の下書きを削除">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- 予約配信設定 -->

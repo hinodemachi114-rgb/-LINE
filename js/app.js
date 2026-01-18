@@ -244,7 +244,20 @@ async function initCampaignPage() {
     const draftSelector = document.getElementById('draft-selector');
     if (draftSelector) {
         loadDraftList();
-        draftSelector.addEventListener('change', handleLoadDraft);
+        draftSelector.addEventListener('change', (e) => {
+            handleLoadDraft(e);
+            // 削除ボタンの表示/非表示
+            const deleteBtn = document.getElementById('btn-delete-draft');
+            if (deleteBtn) {
+                deleteBtn.style.display = e.target.value ? 'block' : 'none';
+            }
+        });
+    }
+
+    // 下書き削除ボタン
+    const deleteDraftBtn = document.getElementById('btn-delete-draft');
+    if (deleteDraftBtn) {
+        deleteDraftBtn.addEventListener('click', handleDeleteDraft);
     }
 
     // 予約日時変更時のボタンテキスト更新
@@ -379,6 +392,47 @@ async function handleLoadDraft(e) {
         }
     } catch (error) {
         alert('❌ 読み込みエラー: ' + error.message);
+    }
+}
+
+// 下書き削除
+async function handleDeleteDraft() {
+    const selector = document.getElementById('draft-selector');
+    const draftId = selector?.value;
+
+    if (!draftId) {
+        alert('削除する下書きを選択してください');
+        return;
+    }
+
+    if (!confirm('この下書きを削除してもよろしいですか？')) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-delete-draft');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`/api/drafts/${draftId}`, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            alert('✅ 下書きを削除しました');
+            selector.value = '';
+            btn.style.display = 'none';
+            loadDraftList();
+        } else {
+            alert('❌ ' + (data.error || '削除に失敗しました'));
+        }
+    } catch (error) {
+        alert('❌ エラー: ' + error.message);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
     }
 }
 
