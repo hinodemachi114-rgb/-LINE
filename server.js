@@ -219,43 +219,148 @@ app.get('/api/campaigns', async (req, res) => {
     }
 });
 
-// 画像アップロード (Google Drive優先)
+// Drive再初期化API（接続トラブル時用）- 復活
+app.post('/api/system/reinit', async (req, res) => {
+    try {
+        console.log('🔄 Drive再初期化リクエスト受信');
+        await initGoogleServices();
+        res.json({
+            success: true,
+            message: '初期化処理を実行しました',
+            driveStatus: !!drive,
+            folderId: process.env.GOOGLE_DRIVE_FOLDER_ID ? '設定済み' : '未設定'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Driveテスト用API（ファイル一覧取得でDrive接続を確認）
+app.get('/api/drive/test', async (req, res) => {
+    try {
+        if (!drive) {
+            return res.json({
+                success: false,
+                error: 'Drive not initialized',
+                reason: 'drive変数がnull - Google APIの初期化に失敗している可能性'
+            });
+        }
+
+        const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
+        if (!folderId) {
+            return res.json({
+                success: false,
+                error: 'Folder ID not set',
+                reason: 'GOOGLE_DRIVE_FOLDER_ID環境変数が未設定'
+            });
+        }
+
+        // フォルダの存在確認
+        let folderInfo;
+        try {
+            folderInfo = await drive.files.get({
+                fileId: folderId,
+                fields: 'name'
+            });
+        } catch (e) {
+            return res.json({
+                success: false,
+                error: 'Folder validation failed',
+                reason: '指定されたフォルダIDにアクセスできません',
+                details: e.message
+            });
+        }
+
+        // フォルダ内のファイル一覧を取得
+        const response = await drive.files.list({
+            q: `'${folderId}' in parents`,
+            fields: 'files(id, name, mimeType)',
+            pageSize: 5
+        });
+
+        res.json({
+            success: true,
+            message: 'Drive接続テスト成功',
+            folderName: folderInfo.data.name,
+            folderId: folderId,
+            filesInFolder: response.data.files.length,
+            sampleFiles: response.data.files.slice(0, 3).map(f => ({ name: f.name, id: f.id.substring(0, 8) + '...' }))
+        });
+    } catch (error) {
+        console.error('📂 Drive test error:', error.message);
+        res.json({
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            testedFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID,
+            folderIdLength: process.env.GOOGLE_DRIVE_FOLDER_ID ? process.env.GOOGLE_DRIVE_FOLDER_ID.length : 0,
+            details: error.response?.data || null
+        });
+    }
+});
+
+
+// 画像アップロード (Google Drive必須)
 app.post('/api/upload', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '画像ファイルが必要です' });
         }
 
+        console.log('📷 画像アップロード開始:', req.file.filename, req.file.mimetype);
+        console.log('📷 Drive初期化状態:', !!drive);
+
         const filePath = req.file.path;
         const mimeType = req.file.mimetype;
+        let uploadError = null;
+        let fileId = null;
 
         // Google Driveにアップロードを試行
-        const fileId = await uploadToDrive(filePath, mimeType);
+        if (drive && process.env.GOOGLE_DRIVE_FOLDER_ID) {
+            try {
+                fileId = await uploadToDrive(filePath, mimeType);
+                console.log('📷 Google Drive アップロード結果:', fileId ? `成功 (ID: ${fileId})` : '失敗');
+            } catch (driveErr) {
+                uploadError = driveErr.message;
+                console.error('❌ Drive upload error:', driveErr.message);
+            }
+        } else {
+            uploadError = `Drive initialization: ${!!drive}, FolderID: ${!!process.env.GOOGLE_DRIVE_FOLDER_ID}`;
+            console.error('⚠️ Drive未設定のためアップロード不可:', uploadError);
+        }
+
+        // ローカルファイルは必ず削除（時限爆弾を作らないため）
+        fs.unlink(filePath, (err) => {
+            if (err) console.error('Temp file delete error:', err);
+        });
 
         if (fileId) {
-            // Google Driveへのアップロード成功 → プロキシURLを返す
-            const imageUrl = `/api/proxy-image/${fileId}`;
-            console.log('✅ Image uploaded to Drive, proxy URL:', imageUrl);
+            // Google Driveへのアップロード成功 → 絶対URLを返す
+            const imageUrl = `${publicBaseUrl}/api/proxy-image/${fileId}`;
+            console.log('✅ 最終画像URL:', imageUrl);
 
             res.json({
                 success: true,
                 filename: req.file.filename,
-                imageUrl: imageUrl
+                imageUrl: imageUrl,
+                driveId: fileId,
+                storage: 'GoogleDrive'
             });
         } else {
-            // Google Driveが使えない場合はローカルURLを返す（開発環境向け）
-            const baseUrl = publicBaseUrl || `http://localhost:${process.env.PORT || 3000}`;
-            const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
-            console.log('⚠️ Drive unavailable, using local URL:', imageUrl);
-
-            res.json({
-                success: true,
-                filename: req.file.filename,
-                imageUrl: imageUrl
+            // 失敗時は明確にエラーを返す（ローカルURLは返さない）
+            console.error('❌ 画像アップロード失敗: Driveへの保存に失敗しました');
+            res.status(500).json({
+                error: '画像の保存に失敗しました。Google Driveの設定を確認してください。',
+                details: uploadError,
+                driveStatus: { initialized: !!drive, folderId: !!process.env.GOOGLE_DRIVE_FOLDER_ID }
             });
         }
     } catch (error) {
-        console.error('Upload error:', error);
+        console.error('❌ Upload error:', error);
+        // エラー時もファイル削除を試みる
+        if (req.file && req.file.path) {
+            fs.unlink(req.file.path, () => { });
+        }
         res.status(500).json({ error: error.message });
     }
 });
