@@ -366,12 +366,18 @@ async function initCampaignPage() {
 
                     const result = await response.json();
 
-                    if (result.success) {
+                    if (result.success && result.imageUrl) {
                         uploadedImageUrl = result.imageUrl;
                         document.getElementById('msg-image-url').value = result.imageUrl;
                         uploadStatus.innerHTML = '<i class="fa-solid fa-check" style="color:green;"></i> アップロード完了';
                     } else {
-                        uploadStatus.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:red;"></i> ' + (result.error || 'アップロード失敗');
+                        console.error('Upload failed or no image URL:', result);
+                        uploadStatus.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:red;"></i> ' + (result.error || '画像のURL取得に失敗しました');
+                        alert('【重要】アップロードは完了しましたが、画像のURLが取得できませんでした。\nもう一度試すか、システム管理者にご連絡ください。');
+                        // 失敗状態にする
+                        document.getElementById('msg-image-url').value = '';
+                        if (previewImage) previewImage.style.display = 'none';
+                        if (previewPlaceholder) previewPlaceholder.style.display = 'flex';
                     }
                 } catch (error) {
                     uploadStatus.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:red;"></i> ' + error.message;

@@ -1890,3 +1890,32 @@ if (process.env.RENDER_EXTERNAL_URL) {
     setInterval(keepAlive, KEEP_ALIVE_INTERVAL);
     console.log('🔄 Keep-alive enabled (14-minute interval)');
 }
+
+// キャンペーンデータ取得 (デバッグ用に追加)
+app.get('/api/campaigns/debug', (req, res) => {
+    // 最新50件を返す
+    // campaigns変数がグローバルスコープにある前提
+    const debugData = typeof campaigns !== 'undefined' ? campaigns.slice(-50).map(c => ({
+        ...c,
+        hasImage: !!c.imageUrl,
+        imageUrl: c.imageUrl ? (c.imageUrl.length > 50 ? c.imageUrl.substring(0, 50) + '...' : c.imageUrl) : 'なし'
+    })) : [];
+    res.json(debugData);
+});
+
+// システムデバッグ用 (環境変数やパスの確認)
+app.get('/api/debug', (req, res) => {
+    res.json({
+        env: {
+            NODE_ENV: process.env.NODE_ENV,
+            RENDER_EXTERNAL_URL: process.env.RENDER_EXTERNAL_URL,
+            PUBLIC_BASE_URL_ENV: process.env.PUBLIC_BASE_URL,
+            GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID ? '設定済み' : '未設定'
+        },
+        internal: {
+            publicBaseUrl: typeof publicBaseUrl !== 'undefined' ? publicBaseUrl : 'undefined',
+            driveInitialized: typeof drive !== 'undefined' && !!drive,
+            campaignsCount: typeof campaigns !== 'undefined' ? campaigns.length : 0
+        }
+    });
+});
