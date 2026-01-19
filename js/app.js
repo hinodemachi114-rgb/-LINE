@@ -371,10 +371,10 @@ async function initCampaignPage() {
                         document.getElementById('msg-image-url').value = result.imageUrl;
                         uploadStatus.innerHTML = '<i class="fa-solid fa-check" style="color:green;"></i> アップロード完了';
                     } else {
-                        console.error('Upload failed or no image URL:', result);
-                        uploadStatus.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:red;"></i> ' + (result.error || '画像のURL取得に失敗しました');
-                        alert('【重要】アップロードは完了しましたが、画像のURLが取得できませんでした。\nもう一度試すか、システム管理者にご連絡ください。');
-                        // 失敗状態にする
+                        console.error('Upload failed:', result);
+                        const errorDetail = result.error || result.details || JSON.stringify(result);
+                        uploadStatus.innerHTML = '<i class="fa-solid fa-exclamation-triangle" style="color:red;"></i> エラー: ' + errorDetail;
+                        alert('【エラー詳細】\n' + errorDetail + '\n\nDrive状態: ' + JSON.stringify(result.driveStatus || 'N/A'));
                         document.getElementById('msg-image-url').value = '';
                         if (previewImage) previewImage.style.display = 'none';
                         if (previewPlaceholder) previewPlaceholder.style.display = 'flex';

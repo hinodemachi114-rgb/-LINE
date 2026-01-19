@@ -1762,7 +1762,12 @@ async function uploadToDrive(filePath, mimeType) {
         return fileId;
 
     } catch (error) {
-        console.error('Drive upload error:', error.message);
+        console.error('Drive upload error details:', {
+            message: error.message,
+            code: error.code,
+            status: error.response?.status,
+            data: error.response?.data
+        });
         return null;
     }
 }
