@@ -126,15 +126,34 @@ async function getSheetData(sheetName) {
         if (rows.length <= 1) return [];
 
         const headers = rows[0];
-        return rows.slice(1).map(row => {
+        const data = rows.slice(1).map(row => {
             const obj = {};
             headers.forEach((header, i) => obj[header] = row[i] || '');
             return obj;
         });
+
+        // Specific mapping for legacy compatibility if needed
+        if (sheetName === 'drafts') {
+            return data.map(item => ({
+                ...item,
+                draftId: item.draftId || item['draftId'],
+                tags: item.tags ? item.tags.split(',') : []
+            }));
+        }
+        return data;
     } catch (error) {
         console.error(`getSheetData error (${sheetName}):`, error.message);
         return [];
     }
+}
+
+async function getSheetId(sheetName) {
+    if (!sheets) return null;
+    const spreadsheet = await sheets.spreadsheets.get({
+        spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID
+    });
+    const sheet = spreadsheet.data.sheets.find(s => s.properties.title === sheetName);
+    return sheet ? sheet.properties.sheetId : null;
 }
 
 async function appendToSheet(sheetName, values) {
@@ -216,6 +235,84 @@ app.get('/api/users', requireAuth, async (req, res) => {
 app.get('/api/campaigns', requireAuth, async (req, res) => {
     const campaigns = await getSheetData('campaigns');
     res.json(campaigns);
+});
+
+// Drafts
+app.get('/api/drafts', requireAuth, async (req, res) => {
+    const drafts = await getSheetData('drafts');
+    // Ensure mapping matches legacy structure
+    res.json(drafts);
+});
+
+app.post('/api/drafts', requireAuth, async (req, res) => {
+    try {
+        const { draftId, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, tags, target } = req.body;
+        const drafts = await getSheetData('drafts');
+        const now = new Date().toISOString();
+
+        const rowData = [
+            draftId || `DRF-${Date.now()}`,
+            title || '',
+            description || '',
+            imageUrl || '',
+            detailLink || '',
+            applyLink || '',
+            applyStart || '',
+            applyDeadline || '',
+            Array.isArray(tags) ? tags.join(',') : (tags || ''),
+            now,
+            now,
+            target || 'all'
+        ];
+
+        const existingIndex = drafts.findIndex(d => d.draftId === draftId);
+        if (existingIndex > -1) {
+            // Update existing
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                range: `drafts!A${existingIndex + 2}:L${existingIndex + 2}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: [rowData] }
+            });
+        } else {
+            // Append new
+            await appendToSheet('drafts', rowData);
+        }
+        res.json({ success: true, draftId: rowData[0] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.delete('/api/drafts/:id', requireAuth, async (req, res) => {
+    try {
+        const draftId = req.params.id;
+        const drafts = await getSheetData('drafts');
+        const index = drafts.findIndex(d => d.draftId === draftId);
+        if (index > -1) {
+            const sheetId = await getSheetId('drafts');
+            await sheets.spreadsheets.batchUpdate({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                resource: {
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'ROWS',
+                                startIndex: index + 1,
+                                endIndex: index + 2
+                            }
+                        }
+                    }]
+                }
+            });
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: '下書きが見つかりません' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Immediate Send

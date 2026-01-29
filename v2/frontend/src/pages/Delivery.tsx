@@ -1,10 +1,14 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, Smartphone, Send, Calendar } from 'lucide-react';
+import { Upload, X, Smartphone, Send, Calendar, Save } from 'lucide-react';
 import axios from 'axios';
 
 const Delivery = () => {
+    const location = useLocation();
+    const navigate = useNavigate();
     const [formData, setFormData] = useState({
+        draftId: '',
         title: '',
         description: '',
         imageUrl: '',
@@ -14,6 +18,22 @@ const Delivery = () => {
         tags: [] as string[]
     });
     const [uploading, setUploading] = useState(false);
+
+    useEffect(() => {
+        if (location.state && location.state.draft) {
+            const draft = location.state.draft;
+            setFormData({
+                draftId: draft.draftId || '',
+                title: draft.title || '',
+                description: draft.description || '',
+                imageUrl: draft.imageUrl || '',
+                detailLink: draft.detailLink || '',
+                applyLink: draft.applyLink || '',
+                target: draft.target || 'all',
+                tags: Array.isArray(draft.tags) ? draft.tags : (draft.tags ? draft.tags.split(',') : [])
+            });
+        }
+    }, [location.state]);
 
     const onDrop = useCallback(async (acceptedFiles: File[]) => {
         const file = acceptedFiles[0];
@@ -52,7 +72,14 @@ const Delivery = () => {
             await axios.post('/api/send', formData, {
                 headers: { 'x-session-id': sessionId }
             });
+            // If it was a draft, delete it after sending
+            if (formData.draftId) {
+                await axios.delete(`/api/drafts/${formData.draftId}`, {
+                    headers: { 'x-session-id': sessionId }
+                });
+            }
             alert('配信が完了しました');
+            navigate('/history');
         } catch (error: any) {
             console.error('Send failed', error);
             alert('配信に失敗しました: ' + (error.response?.data?.error || error.message));
@@ -68,9 +95,30 @@ const Delivery = () => {
             await axios.post('/api/schedule', { ...formData, scheduledAt }, {
                 headers: { 'x-session-id': sessionId }
             });
+            // If it was a draft, delete it after scheduling
+            if (formData.draftId) {
+                await axios.delete(`/api/drafts/${formData.draftId}`, {
+                    headers: { 'x-session-id': sessionId }
+                });
+            }
             alert('配信を予約しました');
+            navigate('/history');
         } catch (error: any) {
             alert('予約に失敗しました: ' + (error.response?.data?.error || error.message));
+        }
+    };
+
+    const handleSaveDraft = async () => {
+        try {
+            const sessionId = localStorage.getItem('sessionId');
+            const response = await axios.post('/api/drafts', formData, {
+                headers: { 'x-session-id': sessionId }
+            });
+            setFormData(prev => ({ ...prev, draftId: response.data.draftId }));
+            alert('下書きを保存しました');
+            navigate('/drafts');
+        } catch (error: any) {
+            alert('下書きの保存に失敗しました');
         }
     };
 
@@ -189,11 +237,14 @@ const Delivery = () => {
                     </div>
 
                     <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
-                        <button className="btn-primary" style={{ flex: 1 }} onClick={handleSend}>
+                        <button className="btn-primary" style={{ flex: 1.5 }} onClick={handleSend}>
                             <Send size={18} /> 今すぐ配信
                         </button>
                         <button className="btn-secondary" style={{ flex: 1 }} onClick={handleSchedule}>
-                            <Calendar size={18} /> 予約配信
+                            <Calendar size={18} /> 予約
+                        </button>
+                        <button className="btn-secondary" style={{ flex: 1 }} onClick={handleSaveDraft}>
+                            <Save size={18} /> 下書き
                         </button>
                     </div>
                 </div>

@@ -5,12 +5,14 @@ import {
   Users,
   History,
   Settings,
-  LogOut
+  LogOut,
+  Edit3
 } from 'lucide-react';
 import Delivery from './pages/Delivery';
 import Dashboard from './pages/Dashboard';
 import Audience from './pages/Audience';
 import HistoryPage from './pages/History';
+import Drafts from './pages/Drafts';
 
 const App = () => {
   return (
@@ -27,8 +29,9 @@ const App = () => {
           <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <NavItem to="/dashboard" icon={<LayoutDashboard size={20} />} label="ダッシュボード" />
             <NavItem to="/delivery" icon={<Send size={20} />} label="メッセージ配信" />
-            <NavItem to="/audience" icon={<Users size={20} />} label="友だち管理" />
+            <NavItem to="/drafts" icon={<Edit3 size={20} />} label="下書き" />
             <NavItem to="/history" icon={<History size={20} />} label="配信履歴" />
+            <NavItem to="/audience" icon={<Users size={20} />} label="友だち管理" />
             <NavItem to="/settings" icon={<Settings size={20} />} label="システム設定" />
           </nav>
 
@@ -44,8 +47,9 @@ const App = () => {
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/delivery" element={<Delivery />} />
-            <Route path="/audience" element={<Audience />} />
+            <Route path="/drafts" element={<Drafts />} />
             <Route path="/history" element={<HistoryPage />} />
+            <Route path="/audience" element={<Audience />} />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </main>
