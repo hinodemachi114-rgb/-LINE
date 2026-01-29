@@ -4,6 +4,7 @@
   "description": "福岡市薬剤師会 公式LINE管理アプリ",
   "main": "server.js",
   "scripts": {
+    "build": "cd v2/frontend && npm install && npm run build",
     "start": "node v2/backend/server.js",
     "dev": "node v2/backend/server.js"
   },
