@@ -13,8 +13,9 @@ const Audience = () => {
                     headers: { 'x-session-id': localStorage.getItem('sessionId') }
                 });
                 setUsers(response.data);
-            } catch (error) {
+            } catch (error: any) {
                 console.error('Fetch users failed', error);
+                alert('ユーザーデータの取得に失敗しました。再ログインが必要かもしれません。');
             } finally {
                 setLoading(false);
             }

@@ -123,24 +123,76 @@ async function getSheetData(sheetName) {
             range: `${sheetName}!A:Z`
         });
         const rows = response.data.values || [];
-        if (rows.length <= 1) return [];
+        if (rows.length === 0) return [];
 
-        const headers = rows[0];
-        const data = rows.slice(1).map(row => {
+        // Determine if first row is a header
+        let hasHeader = false;
+        const firstRow = rows[0];
+        if (sheetName === 'users') {
+            hasHeader = (firstRow[0] === 'userId' || firstRow[0] === 'ユーザーID');
+        } else if (sheetName === 'campaigns') {
+            hasHeader = (firstRow[0] === 'sentAt' || firstRow[0] === '配信日時');
+        } else if (sheetName === 'drafts') {
+            hasHeader = (firstRow[0] === 'draftId');
+        } else if (sheetName === 'admins') {
+            hasHeader = (firstRow[0] === 'email');
+        }
+
+        const headers = hasHeader ? rows[0] : null;
+        const dataRows = hasHeader ? rows.slice(1) : rows;
+
+        return dataRows.map(row => {
             const obj = {};
-            headers.forEach((header, i) => obj[header] = row[i] || '');
+            if (headers) {
+                headers.forEach((h, i) => obj[h] = row[i] || '');
+            } else {
+                // Default legacy mapping if no headers
+                if (sheetName === 'users') {
+                    obj.userId = row[0] || '';
+                    obj.displayName = row[1] || '';
+                    obj.category = row[2] || '';
+                    obj.registeredAt = row[3] || '';
+                } else if (sheetName === 'campaigns') {
+                    obj.sentAt = row[0] || '';
+                    obj.title = row[1] || '';
+                    obj.target = row[2] || '';
+                    obj.sentCount = row[3] || '';
+                    obj.status = row[4] || '';
+                    obj.description = row[5] || '';
+                    obj.imageUrl = row[6] || '';
+                    obj.detailLink = row[7] || '';
+                    obj.applyLink = row[8] || '';
+                    obj.applyStart = row[9] || '';
+                    obj.applyDeadline = row[10] || '';
+                } else if (sheetName === 'drafts') {
+                    obj.draftId = row[0] || '';
+                    obj.title = row[1] || '';
+                    obj.description = row[2] || '';
+                    obj.imageUrl = row[3] || '';
+                    obj.detailLink = row[4] || '';
+                    obj.applyLink = row[5] || '';
+                    obj.applyStart = row[6] || '';
+                    obj.applyDeadline = row[7] || '';
+                    obj.tags = row[8] || '';
+                    obj.createdAt = row[9] || '';
+                    obj.updatedAt = row[10] || '';
+                    obj.target = row[11] || '';
+                } else if (sheetName === 'admins') {
+                    obj.email = row[0] || '';
+                    obj.password = row[1] || '';
+                    obj.name = row[2] || '';
+                    obj.role = row[3] || '';
+                }
+            }
+
+            // Post-processing for certain fields
+            if (sheetName === 'drafts' && typeof obj.tags === 'string') {
+                obj.tags = obj.tags ? obj.tags.split(',') : [];
+            }
+            if (sheetName === 'users' && !obj.userId && row[0]) obj.userId = row[0]; // Fallback
+
             return obj;
         });
-
-        // Specific mapping for legacy compatibility if needed
-        if (sheetName === 'drafts') {
-            return data.map(item => ({
-                ...item,
-                draftId: item.draftId || item['draftId'],
-                tags: item.tags ? item.tags.split(',') : []
-            }));
-        }
-        return data;
     } catch (error) {
         console.error(`getSheetData error (${sheetName}):`, error.message);
         return [];
@@ -209,16 +261,33 @@ app.get('/api/session', (req, res) => {
 
 // Stats
 app.get('/api/stats', requireAuth, async (req, res) => {
-    const users = await getSheetData('users');
-    const categoryStats = {};
-    Object.values(CATEGORIES).forEach(c => categoryStats[c.name] = users.filter(u => u.category === c.name).length);
+    try {
+        const users = await getSheetData('users');
+        const campaigns = await getSheetData('campaigns');
 
-    res.json({
-        totalFriends: users.length,
-        registeredUsers: users.filter(u => u.category).length,
-        categoryStats,
-        monthlyDeliveries: 0 // Placeholder
-    });
+        const categoryStats = {};
+        Object.values(CATEGORIES).forEach(c => {
+            categoryStats[c.id] = users.filter(u => u.category === c.name || u.category === c.id).length;
+        });
+
+        const activeCampaigns = campaigns.filter(c => c.status === 'sent');
+        const now = new Date();
+        const thisMonthCampaigns = activeCampaigns.filter(c => {
+            const d = new Date(c.sentAt);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+
+        res.json({
+            totalFriends: users.length,
+            registeredUsers: users.filter(u => u.category).length,
+            categoryStats,
+            monthlyDeliveries: thisMonthCampaigns.length,
+            totalDeliveries: activeCampaigns.length,
+            recentCampaigns: activeCampaigns.slice(-5).reverse()
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Users
