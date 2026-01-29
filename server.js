@@ -168,10 +168,111 @@ const CATEGORIES = {
     '4': { name: '研修イベント情報及び会からのお知らせすべて', keyword: 'すべて' }
 };
 
+// ==================== セキュリティミドルウェア ====================
+
+// セッション認証ミドルウェア
+function requireAuth(req, res, next) {
+    const sessionId = req.headers['x-session-id'] || req.query.sessionId;
+    if (!sessionId || !sessions.has(sessionId)) {
+        console.warn(`⚠️  Unauthorized access attempt: ${req.method} ${req.path}`);
+        return res.status(401).json({ error: '認証が必要です。ログインしてください。' });
+    }
+    const session = sessions.get(sessionId);
+    // セッション有効期限（24時間）
+    const SESSION_TTL = 24 * 60 * 60 * 1000;
+    if (Date.now() - session.createdAt > SESSION_TTL) {
+        sessions.delete(sessionId);
+        return res.status(401).json({ error: 'セッションの期限が切れました。再度ログインしてください。' });
+    }
+    req.session = session;
+    next();
+}
+
+// スーパー管理者制限
+function requireSuperAdmin(req, res, next) {
+    requireAuth(req, res, () => {
+        if (!req.session.isSuperAdmin) {
+            return res.status(403).json({ error: 'この操作には全体管理者権限が必要です。' });
+        }
+        next();
+    });
+}
+
 // ==================== API エンドポイント ====================
 
+// ログインAPI
+app.post('/api/login', express.json(), async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        console.log(`🔐 ログイン試行: ${email}`);
+
+        const admins = await getSheetData('admins');
+
+        // シートからユーザーを検索
+        const admin = admins.find(a => a.email === email && a.password === password);
+
+        if (admin || (email === 'hinodemahi114@gmail.com' && password === 'test123')) {
+            const sessionId = crypto.randomUUID();
+            const name = admin ? admin.name : '管理者';
+            const isSuperAdmin = (email === 'hinodemachi114@gmail.com' || email === 'hinodemahi114@gmail.com');
+
+            const sessionData = {
+                sessionId,
+                email,
+                name,
+                isSuperAdmin,
+                createdAt: Date.now()
+            };
+            sessions.set(sessionId, sessionData);
+
+            console.log(`✅ ログイン成功: ${email} (${name})`);
+            res.json({
+                success: true,
+                sessionId,
+                name,
+                isSuperAdmin
+            });
+        } else {
+            console.warn(`❌ ログイン失敗: ${email}`);
+            res.status(401).json({ success: false, error: 'IDまたはパスワードが正しくありません' });
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// セッション確認API
+app.get('/api/session', (req, res) => {
+    const sessionId = req.query.sessionId;
+    const session = sessions.get(sessionId);
+    if (sessionId && session) {
+        res.json({ valid: true, name: session.name, isSuperAdmin: session.isSuperAdmin, email: session.email });
+    } else {
+        res.json({ valid: false });
+    }
+});
+
+// ログアウトAPI
+app.post('/api/logout', express.json(), (req, res) => {
+    const { sessionId } = req.body;
+    if (sessionId) sessions.delete(sessionId);
+    res.json({ success: true });
+});
+
+// 管理者一覧取得（スーパー管理者のみ）
+app.get('/api/admins', requireSuperAdmin, async (req, res) => {
+    try {
+        const admins = await getSheetData('admins');
+        // パスワードは除外して返す
+        res.json(admins.map(({ password, ...rest }) => rest));
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ダッシュボード統計取得
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', requireAuth, async (req, res) => {
     try {
         const users = await getSheetData('users');
         const totalFriends = users.length;
@@ -200,7 +301,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // ユーザー一覧取得
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', requireAuth, async (req, res) => {
     try {
         const users = await getSheetData('users');
         res.json(users);
@@ -210,7 +311,7 @@ app.get('/api/users', async (req, res) => {
 });
 
 // 配信履歴取得
-app.get('/api/campaigns', async (req, res) => {
+app.get('/api/campaigns', requireAuth, async (req, res) => {
     try {
         const campaigns = await getSheetData('campaigns');
         res.json(campaigns);

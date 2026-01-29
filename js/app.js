@@ -1,12 +1,56 @@
 // API Base URL
 const API_BASE = '';
 
+// ==================== Auth Helpers ====================
+function getSessionId() {
+    return localStorage.getItem('sessionId');
+}
+
+function getAuthHeaders(contentType = 'application/json') {
+    const headers = {
+        'x-session-id': getSessionId()
+    };
+    if (contentType) {
+        headers['Content-Type'] = contentType;
+    }
+    return headers;
+}
+
+async function checkSession() {
+    const sessionId = getSessionId();
+    if (!sessionId) {
+        window.location.href = '/login.html';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/session?sessionId=${sessionId}`);
+        const data = await response.json();
+        if (!data.valid) {
+            localStorage.removeItem('sessionId');
+            window.location.href = '/login.html';
+        } else {
+            // 管理者名を更新
+            const nameElements = document.querySelectorAll('.user-profile strong, #admin-name');
+            nameElements.forEach(el => el.textContent = data.name);
+        }
+    } catch (error) {
+        console.error('Session check error:', error);
+    }
+}
+
 // ==================== API Functions ====================
 
 // ダッシュボード統計を取得
 async function fetchStats() {
     try {
-        const response = await fetch(`${API_BASE}/api/stats`);
+        const response = await fetch(`${API_BASE}/api/stats`, {
+            headers: getAuthHeaders()
+        });
+        if (response.status === 401) {
+            window.location.href = '/login.html';
+            return;
+        }
         return await response.json();
     } catch (error) {
         console.error('Stats fetch error:', error);
@@ -17,29 +61,9 @@ async function fetchStats() {
 // ユーザー一覧を取得
 async function fetchUsers() {
     try {
-        const response = await fetch(`${API_BASE}/api/users`);
-        return await response.json();
-    } catch (error) {
-        console.error('Users fetch error:', error);
-        return [];
-    }
-}
-
-// 配信履歴を取得
-async function fetchCampaigns() {
-    try {
-        const response = await fetch(`${API_BASE}/api/campaigns`);
-        return await response.json();
-    } catch (error) {
-        console.error('Campaigns fetch error:', error);
-        return [];
-    }
-}
-
-// ユーザー情報を取得
-async function fetchUsers() {
-    try {
-        const response = await fetch(`${API_BASE}/api/users`);
+        const response = await fetch(`${API_BASE}/api/users`, {
+            headers: getAuthHeaders()
+        });
         return await response.json();
     } catch (error) {
         console.error('Users fetch error:', error);
@@ -52,7 +76,7 @@ async function sendCampaign(data) {
     try {
         const response = await fetch(`${API_BASE}/api/send`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify(data)
         });
         return await response.json();
@@ -435,7 +459,9 @@ async function initCampaignPage() {
 // 下書き一覧読み込み
 async function loadDraftList() {
     try {
-        const response = await fetch('/api/drafts');
+        const response = await fetch('/api/drafts', {
+            headers: getAuthHeaders()
+        });
         const drafts = await response.json();
         const selector = document.getElementById('draft-selector');
         if (!selector) return;
@@ -468,7 +494,7 @@ async function handleSaveDraft() {
 
         const result = await fetch('/api/drafts', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
                 title: document.getElementById('msg-title').value,
                 description: document.getElementById('msg-desc').value,
@@ -502,7 +528,9 @@ async function handleLoadDraft(e) {
     if (!draftId) return;
 
     try {
-        const response = await fetch(`/api/drafts/${draftId}`);
+        const response = await fetch(`/api/drafts/${draftId}`, {
+            headers: getAuthHeaders()
+        });
         const draft = await response.json();
 
         if (draft.draftId) {
@@ -574,7 +602,8 @@ async function handleDeleteDraft() {
 
     try {
         const response = await fetch(`/api/drafts/${draftId}`, {
-            method: 'DELETE'
+            method: 'DELETE',
+            headers: getAuthHeaders()
         });
         const data = await response.json();
 
@@ -607,7 +636,7 @@ async function detectAndSetNgrokUrl() {
             // サーバーに公開URLを設定
             await fetch('/api/set-base-url', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({ url: httpsUrl })
             });
 
@@ -654,7 +683,7 @@ async function handleCampaignSubmit(e) {
             // 予約配信
             result = await fetch('/api/schedule', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     target,
                     tags: selectedTags,
@@ -770,6 +799,9 @@ function initModal() {
 // ==================== Page Initialization ====================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // セッションチェック
+    checkSession();
+
     const path = window.location.pathname;
 
     // 共通初期化
