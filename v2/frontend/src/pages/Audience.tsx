@@ -69,7 +69,9 @@ const Audience = () => {
                                             <Tag size={12} /> {user.category || '未設定'}
                                         </span>
                                     </td>
-                                    <td style={tdStyle}>{new Date(user.createdAt).toLocaleDateString()}</td>
+                                    <td style={tdStyle}>
+                                        {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '---'}
+                                    </td>
                                     <td style={tdStyle}>
                                         <button style={actionBtn}><MoreVertical size={18} /></button>
                                     </td>

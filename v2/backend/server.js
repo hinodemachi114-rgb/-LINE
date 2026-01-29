@@ -205,7 +205,11 @@ app.get('/api/stats', requireAuth, async (req, res) => {
 // Users
 app.get('/api/users', requireAuth, async (req, res) => {
     const users = await getSheetData('users');
-    res.json(users);
+    const mappedUsers = users.map(u => ({
+        ...u,
+        createdAt: u.registeredAt || u.createdAt || ''
+    }));
+    res.json(mappedUsers);
 });
 
 // Campaigns
@@ -256,8 +260,77 @@ app.post('/webhook', line.middleware({ channelSecret: lineConfig.channelSecret }
 });
 
 async function handleLineEvent(event) {
-    // Logic for follow/message events...
-    return Promise.resolve(null);
+    if (event.type === 'follow') {
+        const userId = event.source.userId;
+        try {
+            const profile = await lineClient.getProfile(userId);
+            const existingUsers = await getSheetData('users');
+            if (!existingUsers.find(u => u.userId === userId)) {
+                await appendToSheet('users', [userId, profile.displayName, '', new Date().toISOString()]);
+            }
+            await lineClient.replyMessage({
+                replyToken: event.replyToken,
+                messages: [createCategorySelectionMessage()]
+            });
+        } catch (error) {
+            console.error('Follow error:', error);
+        }
+    } else if (event.type === 'message' && event.message.type === 'text') {
+        const userId = event.source.userId;
+        const text = event.message.text.trim();
+        if (['1', '2', '3', '4'].includes(text)) {
+            await updateUserCategory(userId, text);
+            await lineClient.replyMessage({
+                replyToken: event.replyToken,
+                messages: [{ type: 'text', text: `「${CATEGORIES[text].name}」に登録しました！` }]
+            });
+        }
+    }
+    return null;
+}
+
+function createCategorySelectionMessage() {
+    return {
+        type: 'flex',
+        altText: '配信カテゴリを選択してください',
+        contents: {
+            type: 'bubble',
+            body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                    { type: 'text', text: '友だち追加ありがとうございます！', weight: 'bold', size: 'md' },
+                    { type: 'text', text: 'ご希望のカテゴリ番号(1-4)を送信してください。', size: 'sm', margin: 'md' },
+                    { type: 'separator', margin: 'lg' },
+                    ...Object.entries(CATEGORIES).map(([id, cat]) => ({
+                        type: 'text', text: `${id}️⃣ ${cat.name}`, margin: 'md'
+                    }))
+                ]
+            }
+        }
+    };
+}
+
+async function updateUserCategory(userId, category) {
+    if (!sheets) return;
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+            range: 'users!A:D'
+        });
+        const rows = response.data.values || [];
+        const index = rows.findIndex(r => r[0] === userId);
+        if (index > -1) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                range: `users!C${index + 1}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: [[CATEGORIES[category].name]] }
+            });
+        }
+    } catch (error) {
+        console.error('Update category error:', error);
+    }
 }
 
 // Health check
