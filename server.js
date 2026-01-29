@@ -208,13 +208,17 @@ app.post('/api/login', express.json(), async (req, res) => {
 
         const admins = await getSheetData('admins');
 
-        // シートからユーザーを検索
-        const admin = admins.find(a => a.email === email && a.password === password);
+        // パスワードをハッシュ化して比較（またはベタ書き対応）
+        const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+        const admin = admins.find(a => a.email === email && (a.password === password || a.password === hashedPassword));
 
-        if (admin || (email === 'hinodemahi114@gmail.com' && password === 'test123')) {
+        // 特例：要望のあった管理者
+        const isHardcodedAdmin = (email === 'hinodemahi114@gmail.com' && password === 'test123');
+
+        if (admin || isHardcodedAdmin) {
             const sessionId = crypto.randomUUID();
             const name = admin ? admin.name : '管理者';
-            const isSuperAdmin = (email === 'hinodemachi114@gmail.com' || email === 'hinodemahi114@gmail.com');
+            const isSuperAdmin = (email === 'hinodemachi114@gmail.com' || email === 'hinodemahi114@gmail.com' || (admin && admin.role === 'super'));
 
             const sessionData = {
                 sessionId,
@@ -402,66 +406,40 @@ app.get('/api/drive/test', async (req, res) => {
 
 
 // 画像アップロード (Google Drive必須)
-app.post('/api/upload', upload.single('image'), async (req, res) => {
+app.post('/api/upload', requireAuth, upload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ error: '画像ファイルが必要です' });
         }
 
-        console.log('📷 画像アップロード開始:', req.file.filename, req.file.mimetype);
-        console.log('📷 Drive初期化状態:', !!drive);
-
+        console.log('📷 画像アップロード開始:', req.file.filename);
         const filePath = req.file.path;
         const mimeType = req.file.mimetype;
-        let uploadError = null;
         let fileId = null;
 
-        // Google Driveにアップロードを試行
-        if (drive && process.env.GOOGLE_DRIVE_FOLDER_ID) {
-            try {
-                fileId = await uploadToDrive(filePath, mimeType);
-                console.log('📷 Google Drive アップロード結果:', fileId ? `成功 (ID: ${fileId})` : '失敗');
-            } catch (driveErr) {
-                uploadError = driveErr.message;
-                console.error('❌ Drive upload error:', driveErr.message);
-            }
-        } else {
-            uploadError = `Drive initialization: ${!!drive}, FolderID: ${!!process.env.GOOGLE_DRIVE_FOLDER_ID}`;
-            console.error('⚠️ Drive未設定のためアップロード不可:', uploadError);
+        if (drive) {
+            fileId = await uploadToDrive(filePath, mimeType);
         }
 
-        // ローカルファイルは必ず削除（時限爆弾を作らないため）
-        fs.unlink(filePath, (err) => {
-            if (err) console.error('Temp file delete error:', err);
-        });
+        // ローカルファイルは削除
+        fs.unlink(filePath, () => { });
 
         if (fileId) {
-            // Google Driveへのアップロード成功 → 絶対URLを返す
-            const imageUrl = `${publicBaseUrl}/api/proxy-image/${fileId}`;
-            console.log('✅ 最終画像URL:', imageUrl);
+            // プロキシURLを構築（動的にホストを取得）
+            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+            const host = req.headers['x-forwarded-host'] || req.get('host');
+            const imageUrl = `${protocol}://${host}/api/proxy-image/${fileId}`;
 
             res.json({
                 success: true,
-                filename: req.file.filename,
                 imageUrl: imageUrl,
-                driveId: fileId,
-                storage: 'GoogleDrive'
+                driveId: fileId
             });
         } else {
-            // 失敗時は明確にエラーを返す（ローカルURLは返さない）
-            console.error('❌ 画像アップロード失敗: Driveへの保存に失敗しました');
-            res.status(500).json({
-                error: '画像の保存に失敗しました。Google Driveの設定を確認してください。',
-                details: uploadError,
-                driveStatus: { initialized: !!drive, folderId: !!process.env.GOOGLE_DRIVE_FOLDER_ID }
-            });
+            res.status(500).json({ error: 'Google Driveへの保存に失敗しました。' });
         }
     } catch (error) {
-        console.error('❌ Upload error:', error);
-        // エラー時もファイル削除を試みる
-        if (req.file && req.file.path) {
-            fs.unlink(req.file.path, () => { });
-        }
+        console.error('Upload error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -593,59 +571,6 @@ app.post('/api/admins/set-password', express.json(), async (req, res) => {
     }
 });
 
-// ログイン
-app.post('/api/login', express.json(), async (req, res) => {
-    try {
-        const { email, password } = req.body;
-
-        console.log('🔐 ログイン試行:', email);
-
-        const admins = await getSheetData('admins');
-        console.log('📋 管理者一覧:', admins.map(a => ({ email: a.email, status: a.status, hasPassword: !!a.password })));
-
-        const admin = admins.find(a => a.email === email);
-
-        if (!admin) {
-            console.log('❌ 管理者が見つかりません');
-            return res.status(401).json({ error: 'メールアドレスまたはパスワードが間違っています' });
-        }
-
-        console.log('✅ 管理者発見:', { email: admin.email, status: admin.status });
-
-        if (admin.status !== 'active') {
-            console.log('❌ ステータスがactiveではありません:', admin.status);
-            return res.status(401).json({ error: 'アカウントが有効化されていません' });
-        }
-
-        const hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
-        console.log('🔑 パスワード比較:');
-        console.log('   入力ハッシュ:', hashedPassword);
-        console.log('   DB保存値:', admin.password);
-
-        if (admin.password !== hashedPassword) {
-            console.log('❌ パスワード不一致');
-            return res.status(401).json({ error: 'メールアドレスまたはパスワードが間違っています' });
-        }
-
-        // セッション作成
-        const sessionId = crypto.randomBytes(16).toString('hex');
-        sessions.set(sessionId, {
-            email: admin.email,
-            name: admin.name,
-            role: admin.role,
-            isSuperAdmin: admin.email === process.env.SUPER_ADMIN_EMAIL
-        });
-
-        res.json({
-            success: true,
-            sessionId,
-            name: admin.name,
-            isSuperAdmin: admin.email === process.env.SUPER_ADMIN_EMAIL
-        });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // ログアウト
 app.post('/api/logout', express.json(), (req, res) => {
@@ -808,95 +733,54 @@ app.get('/api/proxy-image/:fileId', async (req, res) => {
     }
 });
 
-app.post('/api/upload', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ success: false, error: 'ファイルがアップロードされていません' });
-        }
 
-        const filePath = req.file.path;
-        let imageUrl = '';
-
-        // Google Driveへアップロード試行
-        console.log('📤 Uploading file. Drive enabled:', !!drive);
-        if (drive) {
-            try {
-                // uploadToDriveはfileIdを返すように変更
-                const fileId = await uploadToDrive(filePath, req.file.mimetype);
-
-                if (fileId) {
-                    // プロキシURLを構築
-                    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-                    const host = req.headers['x-forwarded-host'] || req.get('host');
-                    const dynamicBaseUrl = `${protocol}://${host}`;
-
-                    imageUrl = `${dynamicBaseUrl}/api/proxy-image/${fileId}`;
-                    console.log('✅ Generated Proxy URL:', imageUrl);
-
-                    // ローカルの一時ファイルは削除
-                    fs.unlink(filePath, (err) => {
-                        if (err) console.error('Temp file delete error:', err);
-                    });
-                } else {
-                    console.log('⚠️ Drive upload returned null');
-                }
-            } catch (driveError) {
-                console.error('❌ Drive upload failed:', driveError.message);
-            }
-        }
-
-        // Driveが使えない、または失敗した場合はローカルURLを使用 (動的生成)
-        if (!imageUrl) {
-            const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-            const host = req.headers['x-forwarded-host'] || req.get('host');
-            const dynamicBaseUrl = `${protocol}://${host}`;
-
-            imageUrl = `${dynamicBaseUrl}/uploads/${req.file.filename}`;
-            console.log('⚠️ Fallback to local URL:', imageUrl);
-        }
-
-        res.json({ success: true, imageUrl: imageUrl });
-    } catch (error) {
-        console.error('Upload error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.post('/api/send', express.json(), async (req, res) => {
+// 即時配信API
+app.post('/api/send', requireAuth, express.json(), async (req, res) => {
     try {
         const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline } = req.body;
+        console.log(`🚀 配信開始: ${title}`);
 
-        // 対象ユーザー取得
-        let targetUsers = await getSheetData('users');
+        // 1. 全ユーザー情報を一度に取得（高速化）
+        const users = await getSheetData('users');
+        let targetUsers = users;
 
         if (target === 'segment' && tags && tags.length > 0) {
             // タグでフィルタリング（選択タグ + 全てのお知らせ希望者）
-            targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
+            targetUsers = users.filter(user => tags.includes(user.category) || user.category === '4');
         }
 
-        if (targetUsers.length === 0) {
+        const userIds = targetUsers.map(u => u.userId).filter(id => id);
+        if (userIds.length === 0) {
             return res.status(400).json({ error: '配信対象ユーザーがいません' });
         }
 
-        // リッチメッセージ作成
+        // 2. リッチメッセージ作成
         const flexMessage = createRichMessage(title, description, imageUrl, detailLink, applyLink);
 
-        // 配信実行
-        const userIds = targetUsers.map(u => u.userId).filter(id => id);
+        // 3. バッチ配信（500人ずつ）
+        const BATCH_SIZE = 500;
+        let sentSuccess = 0;
 
-        if (userIds.length > 0) {
-            await lineClient.multicast({
-                to: userIds,
-                messages: [flexMessage]
-            });
+        for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+            const batch = userIds.slice(i, i + BATCH_SIZE);
+            try {
+                await lineClient.multicast({
+                    to: batch,
+                    messages: [flexMessage]
+                });
+                sentSuccess += batch.length;
+                console.log(`✅ バッチ送信成功: ${sentSuccess}/${userIds.length}`);
+            } catch (err) {
+                console.error(`❌ バッチ送信失敗 (${i}-${i + batch.length}):`, err.message);
+            }
         }
 
-        // 配信履歴保存（申込期間を追加）
+        // 4. 配信履歴保存
         await appendToSheet('campaigns', [
             new Date().toISOString(),
             title,
             target === 'segment' ? tags.join(',') : '全員',
-            userIds.length,
+            sentSuccess,
             'sent',
             description,
             imageUrl || '',
@@ -908,8 +792,8 @@ app.post('/api/send', express.json(), async (req, res) => {
 
         res.json({
             success: true,
-            sentCount: userIds.length,
-            message: `${userIds.length}人に配信しました`
+            sentCount: sentSuccess,
+            message: `${sentSuccess}人に配信しました`
         });
     } catch (error) {
         console.error('Send error:', error);
@@ -920,7 +804,7 @@ app.post('/api/send', express.json(), async (req, res) => {
 // ==================== 予約配信機能 ====================
 
 // 予約配信保存
-app.post('/api/schedule', express.json(), async (req, res) => {
+app.post('/api/schedule', requireAuth, express.json(), async (req, res) => {
     try {
         const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, scheduledAt } = req.body;
 
@@ -934,35 +818,33 @@ app.post('/api/schedule', express.json(), async (req, res) => {
         }
 
         // 対象ユーザー数を事前計算
-        let targetUsers = await getSheetData('users');
+        const users = await getSheetData('users');
+        let targetUsers = users;
         if (target === 'segment' && tags && tags.length > 0) {
-            targetUsers = targetUsers.filter(user => tags.includes(user.category) || user.category === '4');
+            targetUsers = users.filter(user => tags.includes(user.category) || user.category === '4');
         }
 
-        // 日本時間で保存（フロントエンドで入力された日時をそのまま保存）
-        // scheduledAtはフロントエンドで入力された日時文字列（例：2026-01-18T20:00）
         const scheduleId = `SCH-${Date.now()}`;
         await appendToSheet('campaigns', [
-            scheduledAt,  // sentAt (入力された予約時刻をそのまま保存)
+            scheduledAt,
             title,
             target === 'segment' ? tags.join(',') : '全員',
             targetUsers.length,
-            'scheduled',  // status
+            'scheduled',
             description,
             imageUrl || '',
             detailLink || '',
             applyLink || '',
             applyStart || '',
             applyDeadline || '',
-            scheduleId  // scheduleId
+            scheduleId
         ]);
 
         res.json({
             success: true,
             scheduleId,
             targetCount: targetUsers.length,
-            scheduledAt: scheduledDate.toISOString(),
-            message: `${targetUsers.length}人への配信を ${scheduledDate.toLocaleString('ja-JP')} に予約しました`
+            message: `${targetUsers.length}人への配信を予約しました`
         });
     } catch (error) {
         console.error('Schedule error:', error);
@@ -970,20 +852,16 @@ app.post('/api/schedule', express.json(), async (req, res) => {
     }
 });
 
-// 予約キャンセル（履歴から完全削除）
-app.post('/api/campaigns/cancel', express.json(), async (req, res) => {
+// 予約キャンセル
+app.post('/api/campaigns/cancel', requireAuth, express.json(), async (req, res) => {
     try {
         const { sentAt } = req.body;
-
-        if (!sentAt) {
-            return res.status(400).json({ error: 'キャンセル対象が指定されていません' });
-        }
+        if (!sentAt) return res.status(400).json({ error: 'キャンセル対象が指定されていません' });
 
         const campaigns = await getSheetData('campaigns');
         const rowIndex = campaigns.findIndex(c => c.sentAt === sentAt && c.status === 'scheduled');
 
         if (rowIndex >= 0) {
-            // 行を完全に削除
             const sheetId = await getSheetId('campaigns');
             await sheets.spreadsheets.batchUpdate({
                 spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
@@ -993,20 +871,18 @@ app.post('/api/campaigns/cancel', express.json(), async (req, res) => {
                             range: {
                                 sheetId: sheetId,
                                 dimension: 'ROWS',
-                                startIndex: rowIndex + 1,  // +1 for header row
+                                startIndex: rowIndex + 1,
                                 endIndex: rowIndex + 2
                             }
                         }
                     }]
                 }
             });
-
-            res.json({ success: true, message: '予約を削除しました' });
+            res.json({ success: true, message: '予約をキャンセルしました' });
         } else {
             res.status(404).json({ error: '予約が見つかりません' });
         }
     } catch (error) {
-        console.error('Cancel error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -1093,10 +969,9 @@ async function updateCampaignStatus(sentAt, newStatus) {
 // ==================== 下書き機能 ====================
 
 // 下書き保存
-app.post('/api/drafts', express.json(), async (req, res) => {
+app.post('/api/drafts', requireAuth, express.json(), async (req, res) => {
     try {
         const { title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, tags } = req.body;
-
         const draftId = `DRF-${Date.now()}`;
         const now = new Date().toISOString();
 
@@ -1110,17 +985,12 @@ app.post('/api/drafts', express.json(), async (req, res) => {
             applyStart || '',
             applyDeadline || '',
             tags ? tags.join(',') : '',
-            now,  // createdAt
-            now   // updatedAt
+            now,
+            now
         ]);
 
-        res.json({
-            success: true,
-            draftId,
-            message: '下書きを保存しました'
-        });
+        res.json({ success: true, draftId, message: '下書きを保存しました' });
     } catch (error) {
-        console.error('Draft save error:', error);
         res.status(500).json({ error: error.message });
     }
 });
