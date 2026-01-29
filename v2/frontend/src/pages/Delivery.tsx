@@ -43,6 +43,44 @@ const Delivery = () => {
         multiple: false
     });
 
+    const handleSend = async () => {
+        if (!formData.title || !formData.description) return alert('タイトルと本文を入力してください');
+        if (!confirm('メッセージを今すぐ配信します。よろしいですか？')) return;
+
+        try {
+            const sessionId = localStorage.getItem('sessionId');
+            await axios.post('/api/send', formData, {
+                headers: { 'x-session-id': sessionId }
+            });
+            alert('配信が完了しました');
+        } catch (error: any) {
+            console.error('Send failed', error);
+            alert('配信に失敗しました: ' + (error.response?.data?.error || error.message));
+        }
+    };
+
+    const handleSchedule = async () => {
+        const scheduledAt = prompt('予約日時を入力してください (YYYY-MM-DD HH:mm)');
+        if (!scheduledAt) return;
+
+        try {
+            const sessionId = localStorage.getItem('sessionId');
+            await axios.post('/api/schedule', { ...formData, scheduledAt }, {
+                headers: { 'x-session-id': sessionId }
+            });
+            alert('配信を予約しました');
+        } catch (error: any) {
+            alert('予約に失敗しました: ' + (error.response?.data?.error || error.message));
+        }
+    };
+
+    const toggleTag = (id: string) => {
+        setFormData(prev => ({
+            ...prev,
+            tags: prev.tags.includes(id) ? prev.tags.filter(t => t !== id) : [...prev.tags, id]
+        }));
+    };
+
     return (
         <div className="animate-fade-in">
             <header style={{ marginBottom: '32px' }}>
@@ -53,6 +91,36 @@ const Delivery = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)', gap: '32px' }}>
                 {/* Editor Form */}
                 <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                        <div>
+                            <label style={labelStyle}>配信対象</label>
+                            <select
+                                className="form-input"
+                                value={formData.target}
+                                onChange={e => setFormData({ ...formData, target: e.target.value })}
+                            >
+                                <option value="all">全員に配信</option>
+                                <option value="segment">特定のカテゴリに配信</option>
+                            </select>
+                        </div>
+                        {formData.target === 'segment' && (
+                            <div>
+                                <label style={labelStyle}>対象カテゴリを選択</label>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {['1', '2', '3'].map(id => (
+                                        <button
+                                            key={id}
+                                            onClick={() => toggleTag(id)}
+                                            style={tagBtnStyle(formData.tags.includes(id))}
+                                        >
+                                            {id === '1' ? '学生' : id === '2' ? '研修' : 'イベント'}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <label style={labelStyle}>配信タイトル</label>
                         <input
@@ -121,10 +189,10 @@ const Delivery = () => {
                     </div>
 
                     <div style={{ marginTop: '20px', display: 'flex', gap: '12px' }}>
-                        <button className="btn-primary" style={{ flex: 1 }}>
+                        <button className="btn-primary" style={{ flex: 1 }} onClick={handleSend}>
                             <Send size={18} /> 今すぐ配信
                         </button>
-                        <button className="btn-secondary" style={{ flex: 1 }}>
+                        <button className="btn-secondary" style={{ flex: 1 }} onClick={handleSchedule}>
                             <Calendar size={18} /> 予約配信
                         </button>
                     </div>
@@ -231,6 +299,18 @@ const previewBtnStyle = (type: 'primary' | 'secondary'): React.CSSProperties => 
     fontWeight: 700,
     background: type === 'primary' ? '#06C755' : '#f4f4f4',
     color: type === 'primary' ? 'white' : '#333'
+});
+
+const tagBtnStyle = (active: boolean): React.CSSProperties => ({
+    padding: '6px 14px',
+    borderRadius: '8px',
+    border: '1px solid ' + (active ? 'var(--primary)' : 'var(--border)'),
+    background: active ? 'rgba(6, 199, 85, 0.1)' : 'transparent',
+    color: active ? 'var(--primary)' : 'var(--text-muted)',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
+    transition: 'all 0.2s ease'
 });
 
 export default Delivery;

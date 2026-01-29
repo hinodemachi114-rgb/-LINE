@@ -218,6 +218,96 @@ app.get('/api/campaigns', requireAuth, async (req, res) => {
     res.json(campaigns);
 });
 
+// Immediate Send
+app.post('/api/send', requireAuth, async (req, res) => {
+    try {
+        const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline } = req.body;
+        const users = await getSheetData('users');
+        let targetUsers = users;
+
+        if (target === 'segment' && tags && tags.length > 0) {
+            targetUsers = users.filter(user => tags.includes(user.category) || user.category === '4');
+        }
+
+        const userIds = targetUsers.map(u => u.userId).filter(id => id);
+        if (userIds.length === 0) return res.status(400).json({ error: '配信対象ユーザーがいません' });
+
+        const flexMessage = createRichMessage(title, description, imageUrl, detailLink, applyLink);
+        const BATCH_SIZE = 500;
+        let sentSuccess = 0;
+
+        for (let i = 0; i < userIds.length; i += BATCH_SIZE) {
+            const batch = userIds.slice(i, i + BATCH_SIZE);
+            try {
+                await lineClient.multicast({
+                    messages: [flexMessage],
+                    to: batch
+                });
+                sentSuccess += batch.length;
+            } catch (err) {
+                console.error(`Batch send failed:`, err.message);
+            }
+        }
+
+        await appendToSheet('campaigns', [
+            new Date().toISOString(), title, target === 'segment' ? tags.join(',') : '全員',
+            sentSuccess, 'sent', description, imageUrl || '', detailLink || '',
+            applyLink || '', applyStart || '', applyDeadline || ''
+        ]);
+
+        res.json({ success: true, sentCount: sentSuccess });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Schedule Send
+app.post('/api/schedule', requireAuth, async (req, res) => {
+    try {
+        const { target, tags, title, description, imageUrl, detailLink, applyLink, applyStart, applyDeadline, scheduledAt } = req.body;
+        if (!scheduledAt) return res.status(400).json({ error: '予約日時を指定してください' });
+
+        const users = await getSheetData('users');
+        let targetUsers = users;
+        if (target === 'segment' && tags && tags.length > 0) {
+            targetUsers = users.filter(user => tags.includes(user.category) || user.category === '4');
+        }
+
+        await appendToSheet('campaigns', [
+            scheduledAt, title, target === 'segment' ? tags.join(',') : '全員',
+            targetUsers.length, 'scheduled', description, imageUrl || '',
+            detailLink || '', applyLink || '', applyStart || '', applyDeadline || '',
+            `SCH-${Date.now()}`
+        ]);
+
+        res.json({ success: true, targetCount: targetUsers.length });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Cancel Schedule
+app.post('/api/campaigns/cancel', requireAuth, async (req, res) => {
+    try {
+        const { sentAt } = req.body;
+        if (!sentAt) return res.status(400).json({ error: 'キャンセル対象が指定されていません' });
+
+        const campaigns = await getSheetData('campaigns');
+        const index = campaigns.findIndex(c => c.sentAt === sentAt && c.status === 'scheduled');
+
+        if (index > -1) {
+            // v2 simplicity: mark as cancelled instead of deleting?
+            // Or use batchUpdate to delete row
+            await updateCampaignStatus(sentAt, 'cancelled');
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ error: '予約が見つかりません' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Image Upload
 app.post('/api/upload', requireAuth, upload.single('image'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'ファイルがありません' });
@@ -311,6 +401,59 @@ function createCategorySelectionMessage() {
     };
 }
 
+function createRichMessage(title, description, imageUrl, detailLink, applyLink) {
+    const contents = {
+        type: 'bubble',
+        hero: imageUrl ? {
+            type: 'image',
+            url: imageUrl,
+            size: 'full',
+            aspectRatio: '20:13',
+            aspectMode: 'cover'
+        } : undefined,
+        body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+                { type: 'text', text: title, weight: 'bold', size: 'md', wrap: true },
+                { type: 'text', text: description, size: 'xs', color: '#666666', margin: 'md', wrap: true, maxLines: 100 }
+            ]
+        },
+        footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: []
+        }
+    };
+
+    if (detailLink) {
+        contents.footer.contents.push({
+            type: 'button',
+            style: 'secondary',
+            action: { type: 'uri', label: '詳細を見る', uri: detailLink }
+        });
+    }
+
+    if (applyLink) {
+        contents.footer.contents.push({
+            type: 'button',
+            style: 'primary',
+            color: '#06C755',
+            action: { type: 'uri', label: '申し込む', uri: applyLink }
+        });
+    }
+
+    if (!contents.hero) delete contents.hero;
+    if (contents.footer.contents.length === 0) delete contents.footer;
+
+    return {
+        type: 'flex',
+        altText: title,
+        contents
+    };
+}
+
 async function updateUserCategory(userId, category) {
     if (!sheets) return;
     try {
@@ -347,6 +490,53 @@ app.get('*', (req, res) => {
         res.status(404).send('Not Found');
     }
 });
+
+async function updateCampaignStatus(sentAt, newStatus) {
+    if (!sheets) return;
+    try {
+        const campaigns = await getSheetData('campaigns');
+        const index = campaigns.findIndex(c => c.sentAt === sentAt);
+        if (index > -1) {
+            await sheets.spreadsheets.values.update({
+                spreadsheetId: process.env.GOOGLE_SPREADSHEET_ID,
+                range: `campaigns!E${index + 2}`,
+                valueInputOption: 'USER_ENTERED',
+                resource: { values: [[newStatus]] }
+            });
+        }
+    } catch (error) {
+        console.error('Update status error:', error);
+    }
+}
+
+// Scheduler Loop
+setInterval(async () => {
+    try {
+        const campaigns = await getSheetData('campaigns');
+        const now = new Date();
+        const scheduled = campaigns.filter(c => c.status === 'scheduled');
+
+        for (const campaign of scheduled) {
+            if (new Date(campaign.sentAt) <= now) {
+                console.log(`🚀 Executing scheduled campaign: ${campaign.title}`);
+                const users = await getSheetData('users');
+                const tags = campaign.target ? campaign.target.split(',') : [];
+                const targetUsers = (campaign.target === '全員')
+                    ? users
+                    : users.filter(u => tags.includes(u.category) || u.category === '4');
+
+                const userIds = targetUsers.map(u => u.userId).filter(id => id);
+                if (userIds.length > 0) {
+                    const flex = createRichMessage(campaign.title, campaign.description, campaign.imageUrl, campaign.detailLink, campaign.applyLink);
+                    await lineClient.multicast({ messages: [flex], to: userIds });
+                }
+                await updateCampaignStatus(campaign.sentAt, 'sent');
+            }
+        }
+    } catch (error) {
+        console.error('Scheduler loop error:', error);
+    }
+}, 60000);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
