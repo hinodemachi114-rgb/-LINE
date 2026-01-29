@@ -142,7 +142,11 @@
         // 管理者一覧読み込み
         async function loadAdmins() {
             try {
-                const response = await fetch('/api/admins');
+                const response = await fetch('/api/admins', {
+                    headers: {
+                        'x-session-id': localStorage.getItem('sessionId')
+                    }
+                });
                 const admins = await response.json();
 
                 const tbody = document.getElementById('admins-tbody');
@@ -194,7 +198,10 @@
             try {
                 const response = await fetch('/api/admins/invite', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-session-id': localStorage.getItem('sessionId')
+                    },
                     body: JSON.stringify({
                         name,
                         email,
@@ -234,7 +241,10 @@
             try {
                 const response = await fetch(`/api/admins/${encodeURIComponent(email)}`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-session-id': localStorage.getItem('sessionId')
+                    },
                     body: JSON.stringify({ inviterEmail: currentSession.email })
                 });
 

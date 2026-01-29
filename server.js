@@ -469,26 +469,11 @@ function createMailTransporter() {
     });
 }
 
-// 管理者一覧取得
-app.get('/api/admins', async (req, res) => {
-    try {
-        const admins = await getSheetData('admins');
-        // パスワードを除外して返す
-        const safeAdmins = admins.map(a => ({
-            email: a.email,
-            name: a.name,
-            role: a.role,
-            status: a.status,
-            createdAt: a.createdAt
-        }));
-        res.json(safeAdmins);
-    } catch (error) {
-        res.json([]);
-    }
-});
+// 管理者一覧取得は 268行目の requireSuperAdmin 付きのものに統一
+// ここにあった重複ルートを削除しました
 
 // 管理者招待（スーパー管理者のみ）
-app.post('/api/admins/invite', express.json(), async (req, res) => {
+app.post('/api/admins/invite', requireSuperAdmin, async (req, res) => {
     try {
         const { email, name, inviterEmail } = req.body;
 
@@ -572,26 +557,12 @@ app.post('/api/admins/set-password', express.json(), async (req, res) => {
 });
 
 
-// ログアウト
-app.post('/api/logout', express.json(), (req, res) => {
-    const { sessionId } = req.body;
-    sessions.delete(sessionId);
-    res.json({ success: true });
-});
+// ログアウト API は 261行目に統一
 
-// セッション確認
-app.get('/api/session', (req, res) => {
-    const sessionId = req.query.sessionId;
-    const session = sessions.get(sessionId);
-    if (session) {
-        res.json({ valid: true, ...session });
-    } else {
-        res.json({ valid: false });
-    }
-});
+// セッション確認 API は 250行目に統一
 
 // 管理者削除（スーパー管理者のみ）
-app.delete('/api/admins/:email', express.json(), async (req, res) => {
+app.delete('/api/admins/:email', requireSuperAdmin, async (req, res) => {
     try {
         const targetEmail = decodeURIComponent(req.params.email);
         const { inviterEmail } = req.body;
@@ -996,7 +967,7 @@ app.post('/api/drafts', requireAuth, express.json(), async (req, res) => {
 });
 
 // 下書き一覧取得
-app.get('/api/drafts', async (req, res) => {
+app.get('/api/drafts', requireAuth, async (req, res) => {
     try {
         const drafts = await getSheetData('drafts');
         // 新しい順にソート
@@ -1009,7 +980,7 @@ app.get('/api/drafts', async (req, res) => {
 });
 
 // 下書き取得
-app.get('/api/drafts/:id', async (req, res) => {
+app.get('/api/drafts/:id', requireAuth, async (req, res) => {
     try {
         const drafts = await getSheetData('drafts');
         const draft = drafts.find(d => d.draftId === req.params.id);
@@ -1024,7 +995,7 @@ app.get('/api/drafts/:id', async (req, res) => {
 });
 
 // 下書き削除
-app.delete('/api/drafts/:id', async (req, res) => {
+app.delete('/api/drafts/:id', requireAuth, async (req, res) => {
     try {
         const drafts = await getSheetData('drafts');
         const rowIndex = drafts.findIndex(d => d.draftId === req.params.id);
@@ -1868,7 +1839,7 @@ if (process.env.RENDER_EXTERNAL_URL) {
 }
 
 // キャンペーンデータ取得 (デバッグ用に追加)
-app.get('/api/campaigns/debug', (req, res) => {
+app.get('/api/campaigns/debug', requireSuperAdmin, (req, res) => {
     // 最新50件を返す
     // campaigns変数がグローバルスコープにある前提
     const debugData = typeof campaigns !== 'undefined' ? campaigns.slice(-50).map(c => ({
@@ -1880,7 +1851,7 @@ app.get('/api/campaigns/debug', (req, res) => {
 });
 
 // システムデバッグ用 (環境変数やパスの確認)
-app.get('/api/debug', (req, res) => {
+app.get('/api/debug', requireSuperAdmin, (req, res) => {
     res.json({
         env: {
             NODE_ENV: process.env.NODE_ENV,

@@ -156,7 +156,11 @@
 
         async function loadHistory() {
             try {
-                const response = await fetch('/api/campaigns');
+                const response = await fetch('/api/campaigns', {
+                    headers: {
+                        'x-session-id': localStorage.getItem('sessionId')
+                    }
+                });
                 let allCampaigns = await response.json();
 
                 // キャンセル済みを除外
@@ -352,7 +356,10 @@
             try {
                 const response = await fetch(`/api/campaigns/cancel`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-session-id': localStorage.getItem('sessionId')
+                    },
                     body: JSON.stringify({ sentAt: campaign.sentAt })
                 });
                 const data = await response.json();

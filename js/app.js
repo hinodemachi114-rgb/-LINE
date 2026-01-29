@@ -202,7 +202,9 @@ async function initAudiencePage() {
 
     try {
         // APIからユーザーデータを取得
-        const response = await fetch('/api/users');
+        const response = await fetch('/api/users', {
+            headers: getAuthHeaders()
+        });
         const users = await response.json();
 
         // カテゴリ別の統計を計算
@@ -736,24 +738,29 @@ async function handleCampaignSubmit(e) {
 // ==================== History Page ====================
 
 async function initHistoryPage() {
-    const campaigns = await fetchCampaigns();
-    const tbody = document.getElementById('history-tbody');
+    try {
+        const response = await fetch(`${API_BASE}/api/campaigns`, {
+            headers: getAuthHeaders()
+        });
+        const campaigns = await response.json();
 
-    if (!tbody) return;
+        const tbody = document.getElementById('history-tbody');
 
-    if (campaigns.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:2rem;">配信履歴がありません</td></tr>';
-        return;
-    }
+        if (!tbody) return;
 
-    let html = '';
-    campaigns.forEach(campaign => {
-        const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
-        const statusBadge = campaign.status === 'sent'
-            ? '<span class="badge badge-sent">送信済</span>'
-            : '<span class="badge badge-scheduled">予約</span>';
+        if (campaigns.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:#999; padding:2rem;">配信履歴がありません</td></tr>';
+            return;
+        }
 
-        html += `
+        let html = '';
+        campaigns.forEach(campaign => {
+            const date = campaign.sentAt ? new Date(campaign.sentAt).toLocaleString('ja-JP') : '-';
+            const statusBadge = campaign.status === 'sent'
+                ? '<span class="badge badge-sent">送信済</span>'
+                : '<span class="badge badge-scheduled">予約</span>';
+
+            html += `
             <tr>
                 <td>${date}</td>
                 <td>${campaign.title || '-'}</td>
@@ -763,97 +770,97 @@ async function initHistoryPage() {
                 <td><button class="btn btn-sm" style="color:var(--primary-color);" onclick="showCampaignDetail('${campaign.title}')">詳細</button></td>
             </tr>
         `;
-    });
+        });
 
-    tbody.innerHTML = html;
-}
+        tbody.innerHTML = html;
+    }
 
 function showCampaignDetail(title) {
-    const modal = document.getElementById('detail-modal');
-    const modalTitle = document.getElementById('modal-msg-title');
-    if (modalTitle) modalTitle.textContent = title;
-    if (modal) modal.classList.add('active');
-}
-
-// ==================== Modal Controls ====================
-
-function initModal() {
-    const modal = document.getElementById('detail-modal');
-    const closeBtn = document.getElementById('modal-close');
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-            modal.classList.remove('active');
-        });
+        const modal = document.getElementById('detail-modal');
+        const modalTitle = document.getElementById('modal-msg-title');
+        if (modalTitle) modalTitle.textContent = title;
+        if (modal) modal.classList.add('active');
     }
 
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
+    // ==================== Modal Controls ====================
+
+    function initModal() {
+        const modal = document.getElementById('detail-modal');
+        const closeBtn = document.getElementById('modal-close');
+
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
                 modal.classList.remove('active');
-            }
-        });
-    }
-}
+            });
+        }
 
-// ==================== Page Initialization ====================
-
-document.addEventListener('DOMContentLoaded', () => {
-    // セッションチェック
-    checkSession();
-
-    const path = window.location.pathname;
-
-    // 共通初期化
-    initModal();
-    initMobileMenu();
-
-    // ページ別初期化
-    if (path.includes('index.html') || path === '/' || path.endsWith('/')) {
-        initDashboard();
-    } else if (path.includes('create-campaign.html')) {
-        initCampaignPage();
-    } else if (path.includes('history.html')) {
-        // history.htmlは独自実装があるためスキップ
-        // initHistoryPage(); 
-    } else if (path.includes('audience.html')) {
-        initAudiencePage();
-    }
-});
-
-// ==================== Mobile Menu ====================
-function initMobileMenu() {
-    const menuBtn = document.getElementById('menu-toggle');
-    const sidebar = document.querySelector('.sidebar');
-
-    // オーバーレイ生成
-    const overlay = document.createElement('div');
-    overlay.className = 'sidebar-overlay';
-    document.body.appendChild(overlay);
-
-    function toggleMenu() {
-        sidebar.classList.toggle('active');
-        overlay.classList.toggle('active');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
+            });
+        }
     }
 
-    if (menuBtn) {
-        menuBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleMenu();
-        });
-    }
+    // ==================== Page Initialization ====================
 
-    // オーバーレイクリックで閉じる
-    overlay.addEventListener('click', toggleMenu);
+    document.addEventListener('DOMContentLoaded', () => {
+        // セッションチェック
+        checkSession();
 
-    // リンククリック時にも閉じる
-    const navLinks = document.querySelectorAll('.nav-link');
-    navLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            if (window.innerWidth <= 768) {
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
-            }
-        });
+        const path = window.location.pathname;
+
+        // 共通初期化
+        initModal();
+        initMobileMenu();
+
+        // ページ別初期化
+        if (path.includes('index.html') || path === '/' || path.endsWith('/')) {
+            initDashboard();
+        } else if (path.includes('create-campaign.html')) {
+            initCampaignPage();
+        } else if (path.includes('history.html')) {
+            // history.htmlは独自実装があるためスキップ
+            // initHistoryPage(); 
+        } else if (path.includes('audience.html')) {
+            initAudiencePage();
+        }
     });
-}
+
+    // ==================== Mobile Menu ====================
+    function initMobileMenu() {
+        const menuBtn = document.getElementById('menu-toggle');
+        const sidebar = document.querySelector('.sidebar');
+
+        // オーバーレイ生成
+        const overlay = document.createElement('div');
+        overlay.className = 'sidebar-overlay';
+        document.body.appendChild(overlay);
+
+        function toggleMenu() {
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+        }
+
+        if (menuBtn) {
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleMenu();
+            });
+        }
+
+        // オーバーレイクリックで閉じる
+        overlay.addEventListener('click', toggleMenu);
+
+        // リンククリック時にも閉じる
+        const navLinks = document.querySelectorAll('.nav-link');
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('active');
+                    overlay.classList.remove('active');
+                }
+            });
+        });
+    }
