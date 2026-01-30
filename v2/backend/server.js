@@ -648,7 +648,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // SPA Fallback: Serve index.html for unknown routes (Production)
-app.get('*', (req, res) => {
+app.get('{*path}', (req, res) => {
     const indexPath = path.resolve(__dirname, '../frontend/dist/index.html');
     if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
